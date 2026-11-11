@@ -262,14 +262,54 @@
     return CAT_COLOR[name] || CAT_COLOR.Other;
   }
 
-  const CAT_EMOJI = {
-    Food: "\uD83C\uDF54", Shopping: "\uD83D\uDECD\uFE0F", Travel: "\uD83D\uDE95", Bills: "\uD83E\uDDFE",
-    Fuel: "\u26FD", Health: "\uD83D\uDC8A", Entertainment: "\uD83C\uDFAC", EMI: "\uD83D\uDCB3",
-    Rent: "\uD83C\uDFE0", Investment: "\uD83D\uDCC8", Other: "\uD83D\uDCE6"
+  const ICO = {
+    food: '<path class="stroke" pathLength="100" d="M6 11c0-3.8 2.5-6 6-6s6 2.2 6 6"/><path class="stroke" pathLength="100" d="M6 11h12M6 14.4h12"/><path class="stroke" pathLength="100" d="M6 14.4c0 3.4 2.4 5.6 6 5.6s6-2.2 6-5.6"/><rect class="ico-accent" x="6.2" y="11.4" width="11.6" height="2.6" rx="1"/>',
+    shopping: '<rect class="stroke" pathLength="100" x="6" y="8" width="12" height="12.5" rx="1.75"/><path class="stroke" pathLength="100" d="M9 8V6.2A3 3 0 0 1 12 4a3 3 0 0 1 3 2.2V8"/><rect class="ico-accent" x="10.2" y="12.2" width="3.6" height="4.6" rx="0.7"/>',
+    travel: '<rect class="stroke" pathLength="100" x="4.5" y="8.5" width="15" height="11.5" rx="1.75"/><path class="stroke" pathLength="100" d="M9 8.5V6.2a3 3 0 0 1 6 0v2.3"/><rect class="ico-accent" x="11" y="8.5" width="2" height="11.5"/>',
+    bills: '<path class="stroke" pathLength="100" d="M7 3.5h7.2L18.5 8v12.5H7V3.5z"/><path class="stroke" pathLength="100" d="M14.2 3.5V8h4.3"/><path class="stroke" pathLength="100" d="M9.5 12h5.5M9.5 15h5.5"/><rect class="ico-accent" x="13.2" y="17.2" width="3.8" height="2.4" rx="0.4"/>',
+    fuel: '<rect class="stroke" pathLength="100" x="6.5" y="8" width="8" height="13" rx="1.2"/><path class="stroke" pathLength="100" d="M9 8V5h3.5v3"/><path class="stroke" pathLength="100" d="M14.5 11.5c3.6.4 4.2 3.6 1.8 6"/><path class="stroke" pathLength="100" d="M16 17.5h3.2v2.2"/><path class="ico-accent" d="M10.5 13.2c0-1.5 1.8-2.2 1.8-3.6 0-1-.8-1.6-1.8-1.6s-1.8.6-1.8 1.6c0 1.4 1.8 2.1 1.8 3.6z"/>',
+    entertainment: '<rect class="stroke" pathLength="100" x="3" y="7" width="18" height="10.5" rx="2"/><path class="stroke" pathLength="100" d="M8 7v10.5"/><path class="ico-accent" d="M12.2 10.1 16.6 12.25 12.2 14.4z"/>',
+    health: '<circle class="stroke" pathLength="100" cx="12" cy="12" r="8.5"/><rect class="ico-accent" x="10.9" y="7.6" width="2.2" height="8.8" rx="0.6"/><rect class="ico-accent" x="7.6" y="10.9" width="8.8" height="2.2" rx="0.6"/>',
+    emi: '<rect class="stroke" pathLength="100" x="3" y="6.5" width="18" height="11.5" rx="1.75"/><rect class="stroke" pathLength="100" x="5.5" y="14.2" width="3.4" height="2.2" rx="0.4"/><rect class="ico-accent" x="3" y="10" width="18" height="2.8"/>',
+    rent: '<rect class="stroke" pathLength="100" x="6" y="4.5" width="12" height="16.5" rx="0.5"/><rect class="stroke" pathLength="100" x="8" y="7.2" width="3" height="3"/><rect class="stroke" pathLength="100" x="13" y="7.2" width="3" height="3"/><rect class="stroke" pathLength="100" x="8" y="12" width="3" height="3"/><rect class="ico-accent" x="13" y="12" width="3" height="3"/><path class="stroke" pathLength="100" d="M10.5 18.2V21h3v-2.8"/>',
+    investment: '<path class="stroke" pathLength="100" d="M4.5 5v14.5h15.5"/><path class="stroke" pathLength="100" d="M5.8 15.2 9.6 10.6 12.6 13.2 18.2 7"/><circle class="ico-accent" cx="18.4" cy="6.7" r="2"/>',
+    other: '<rect class="stroke" pathLength="100" x="5" y="9" width="14" height="11" rx="1.2"/><path class="stroke" pathLength="100" d="M5 9l7-4.2L19 9M12 4.8v4.2"/><rect class="ico-accent" x="10" y="8.4" width="4" height="2.2" rx="0.3"/>',
+    generic: '<rect class="stroke" pathLength="100" x="4.5" y="4.5" width="15" height="15" rx="3"/><rect class="ico-accent" x="7" y="7" width="5" height="5" rx="1"/>',
+    home: '<path class="stroke" pathLength="100" d="M3.5 12 12 4.5 20.5 12"/><path class="stroke" pathLength="100" d="M6.5 11v9.5h11V11"/><rect class="ico-accent" x="10.4" y="14.4" width="3.2" height="6.1" rx="0.3"/>',
+    activity: '<path class="stroke" pathLength="100" d="M10 7h10M10 12h10M10 17h10"/><circle class="stroke" pathLength="100" cx="6" cy="12" r="1.35"/><circle class="stroke" pathLength="100" cx="6" cy="17" r="1.35"/><circle class="ico-accent" cx="6" cy="7" r="1.7"/>',
+    budgets: '<circle class="stroke" pathLength="100" cx="12" cy="12" r="8.5"/><path class="ico-accent" d="M12 12V3.5A8.5 8.5 0 0 1 20.5 12z"/>',
+    settings: '<path class="stroke" pathLength="100" d="M4 8h16M4 16h16"/><circle class="stroke" pathLength="100" cx="15.2" cy="16" r="2.2"/><circle class="ico-accent" cx="8.8" cy="8" r="2.3"/>',
+    add: '<path class="stroke" pathLength="100" d="M12 5.5v13M5.5 12h13"/><rect class="ico-accent" x="15.2" y="15.2" width="4.2" height="4.2" rx="0.8"/>',
+    income: '<path class="stroke" pathLength="100" d="M12 4.2v11.5M8.2 11.5 12 15.7 15.8 11.5"/><path class="stroke" pathLength="100" d="M4.5 16.4h15l-1.4 4.1H5.9z"/><path class="ico-accent" d="M5.9 17.6h12.2l-.7 2.2H6.6z"/>',
+    expense: '<path class="stroke" pathLength="100" d="M12 19.6V8.1M8.2 12.3 12 8.1 15.8 12.3"/><path class="stroke" pathLength="100" d="M4.5 16.4h15l-1.4 4.1H5.9z"/><path class="ico-accent" d="M12 4.6 16.1 9.2H7.9z"/>',
+    saving: '<rect class="stroke" pathLength="100" x="7" y="9.5" width="10" height="11" rx="2"/><path class="stroke" pathLength="100" d="M9.2 9.5V7.4h5.6v2.1M10.2 12h3.6"/><circle class="ico-accent" cx="12" cy="5.1" r="2.3"/>',
+    backup: '<path class="stroke" pathLength="100" d="M16.6 6.4A7.2 7.2 0 1 0 19 16"/><path class="ico-accent" d="M16.6 3.6 20.4 7.2 15.2 8.2z"/>',
+    export: '<rect class="stroke" pathLength="100" x="4" y="4.5" width="16" height="15.5" rx="1.2"/><path class="stroke" pathLength="100" d="M9.6 9.5v10.5M14.4 9.5v10.5"/><rect class="ico-accent" x="4" y="4.5" width="16" height="5"/>',
+    warning: '<path class="ico-accent" d="M12 3.6 21.6 20.6H2.4z"/><path class="stroke" pathLength="100" d="M12 3.6 21.6 20.6H2.4z"/><path class="stroke" pathLength="100" d="M12 10v5.2"/><circle class="stroke" pathLength="100" cx="12" cy="17.6" r="0.7"/>',
+    duplicate: '<rect class="ico-accent" x="4.5" y="4" width="12.5" height="12.5" rx="1.75"/><rect class="stroke" pathLength="100" x="8" y="8" width="12.5" height="12.5" rx="1.75"/>',
+    check: '<circle class="ico-accent" cx="12" cy="12" r="9.2"/><path class="stroke" pathLength="100" d="M7 12.2 10.4 15.8 17.2 8.4"/>',
+    note: '<path class="stroke" pathLength="100" d="M6 3.5h9.2L18.5 7v13.5H6V3.5z"/><path class="stroke" pathLength="100" d="M15.2 3.5V7h3.3"/><path class="stroke" pathLength="100" d="M8.5 11h7M8.5 14h5.5"/><path class="ico-accent" d="M15.2 3.5 18.5 7h-3.3z"/>',
+    backspace: '<path class="stroke" pathLength="100" d="M9.2 6.2H19.5A1.8 1.8 0 0 1 21.3 8v8a1.8 1.8 0 0 1-1.8 1.8H9.2L3.2 12z"/><path class="stroke" pathLength="100" d="M11.6 9.4 16.4 14.2M16.4 9.4 11.6 14.2"/>'
   };
-  function catIcon(name) {
-    const emo = CAT_EMOJI[name] || "\u2728";
-    return '<span class="cat-icon em" aria-hidden="true">' + emo + "</span>";
+  const CAT_ICO = {
+    Food: "food", Shopping: "shopping", Travel: "travel", Bills: "bills",
+    Fuel: "fuel", Health: "health", Entertainment: "entertainment", EMI: "emi",
+    Rent: "rent", Investment: "investment", Other: "other"
+  };
+  function icon(name, extraClass) {
+    const inner = ICO[name] || ICO.generic;
+    return '<svg class="ico ico-' + name + (extraClass ? " " + extraClass : "") +
+      '" viewBox="0 0 24 24" fill="none" aria-hidden="true">' + inner + "</svg>";
+  }
+  function catIcon(name, extraClass) {
+    const key = CAT_ICO[name] || "generic";
+    return '<span class="cat-icon em">' + icon(key, extraClass) + "</span>";
+  }
+  function hydrateStaticIcons() {
+    document.querySelectorAll("[data-ico]").forEach(function (el) {
+      const appear = el.hasAttribute("data-ico-appear");
+      el.innerHTML = icon(el.getAttribute("data-ico"), appear ? "ico-appear" : "");
+    });
   }
 
   function isDark() {
@@ -286,7 +326,7 @@
     const resolved = resolveTheme(state.theme || "system");
     document.documentElement.setAttribute("data-theme", resolved);
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute("content", resolved === "dark" ? "#070B24" : "#F7F8FC");
+    if (meta) meta.setAttribute("content", resolved === "dark" ? "#00002E" : "#F7F8FC");
     const bar = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
     if (bar) bar.setAttribute("content", resolved === "dark" ? "black-translucent" : "default");
     document.querySelectorAll("#themeSeg button").forEach((b) => {
@@ -474,7 +514,7 @@
     const foot = document.getElementById("confirmFoot");
     if (!m) return;
     if (m.saved) {
-      body.innerHTML = '<div class="saved-check"><div class="mark">\u2713</div><h2>Saved</h2><p>You can go back to Messages now.</p></div>';
+      body.innerHTML = '<div class="saved-check"><div class="mark">' + icon("check", "ico-appear ico-check") + '</div><h2>Saved</h2><p>You can go back to Messages now.</p></div>';
       foot.innerHTML = '<div class="confirm-actions"><button class="btn btn-primary" type="button" id="confirmDone">Done</button></div>';
       document.getElementById("confirmDone").onclick = function () { closeConfirm(true); renderAll(); };
       return;
@@ -488,7 +528,7 @@
       '<div class="confirm-amt money"><span id="confirmAmtText">' + displayConfirmAmount(rawText) + '</span>' +
       '<input id="confirmAmount" class="confirm-amt-sr" inputmode="decimal" value="' + escapeAttr(rawText) + '" placeholder="0" aria-label="Amount" /></div>';
     const dup = m.duplicate
-      ? '<div class="dup-banner glass" id="dupBanner"><strong>Possible duplicate</strong>Looks like a duplicate of ' + formatINR(m.duplicate.amount) + (m.duplicate.merchant || m.duplicate.category ? " \u00b7 " + escapeHtml(m.duplicate.merchant || m.duplicate.category) : "") + ". Save anyway?</div>"
+      ? '<div class="dup-banner glass" id="dupBanner">' + icon("duplicate") + '<div><strong>Possible duplicate</strong>Looks like a duplicate of ' + formatINR(m.duplicate.amount) + (m.duplicate.merchant || m.duplicate.category ? " \u00b7 " + escapeHtml(m.duplicate.merchant || m.duplicate.category) : "") + ". Save anyway?</div></div>"
       : "";
     const used = mostUsedCategories(8);
     if (m.category && state.categories.includes(m.category)) {
@@ -497,7 +537,7 @@
       used.unshift(m.category);
     }
     const chips = used.filter(function (v, i, a) { return a.indexOf(v) === i; }).slice(0, 8).map(function (c) {
-      return '<button type="button" class="chip glass' + (c === m.category ? " sel active" : "") + '" data-conf-cat="' + escapeAttr(c) + '">' + catIcon(c) + " " + escapeHtml(c) + "</button>";
+      return '<button type="button" class="chip glass' + (c === m.category ? " sel active" : "") + '" data-conf-cat="' + escapeAttr(c) + '">' + catIcon(c, c === m.category ? "ico-bounce" : "") + " " + escapeHtml(c) + "</button>";
     }).join("");
     const rule = (m.offerRule && m.merchant)
       ? '<div class="rule-banner glass">Always use ' + escapeHtml(m.category) + " for " + escapeHtml(m.merchant) + '? <button class="btn btn-primary" type="button" id="rememberRule" style="height:36px;width:auto;">Yes</button></div>'
@@ -505,7 +545,7 @@
     const noteOpen = m.noteOpen || m.note;
     const keyLabels = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "back"];
     const keysHtml = '<div class="keys">' + keyLabels.map(function (k) {
-      return '<button type="button" class="glass" data-key="' + k + '">' + (k === "back" ? "\u232B" : k) + "</button>";
+      return '<button type="button" class="glass" data-key="' + k + '">' + (k === "back" ? icon("backspace") : k) + "</button>";
     }).join("") + "</div>";
     body.innerHTML = amtBlock +
       '<div class="confirm-merchant">' + (m.merchant ? escapeHtml(m.merchant) : "Unknown merchant") +
@@ -514,11 +554,11 @@
       dup + rule +
       '<div class="cat-scroll">' + chips +
       '<button type="button" class="chip glass" id="confirmMore">More</button></div><div class="more-grid hidden" id="confirmMoreGrid"></div>' +
-      '<button class="note-toggle glass confirm-note" type="button" id="toggleNote">' + (noteOpen ? "Hide note" : "\u270E Add a note") + "</button>" +
+      '<button class="note-toggle glass confirm-note" type="button" id="toggleNote">' + (noteOpen ? "Hide note" : icon("note") + " Add a note") + "</button>" +
       '<div class="note-box ' + (noteOpen ? "" : "hidden") + '" id="confirmNoteWrap"><input id="confirmNote" maxlength="120" placeholder="Optional note" value="' + escapeAttr(m.note || "") + '" /></div>' +
       '<div class="field confirm-type"><label>Type</label><div class="seg glass" id="confirmType">' +
-      '<button type="button" data-ctype="expense" class="expense' + (m.type === "expense" ? " active" : "") + '">Expense</button>' +
-      '<button type="button" data-ctype="income" class="income' + (m.type !== "expense" ? " active" : "") + '">Income</button></div></div>' +
+      '<button type="button" data-ctype="expense" class="expense' + (m.type === "expense" ? " active" : "") + '">' + icon("expense") + " Expense</button>" +
+      '<button type="button" data-ctype="income" class="income' + (m.type !== "expense" ? " active" : "") + '">' + icon("income") + " Income</button></div></div>" +
       "";
     const saveLabel = m.duplicate ? "Save anyway" : "Save";
     foot.innerHTML = keysHtml +
@@ -555,7 +595,7 @@
       const open = grid.classList.contains("hidden");
       if (open) {
         grid.innerHTML = state.categories.map(function (c) {
-          return '<button type="button" class="chip glass' + (c === m.category ? " sel active" : "") + '" data-conf-cat="' + escapeAttr(c) + '">' + catIcon(c) + " " + escapeHtml(c) + "</button>";
+          return '<button type="button" class="chip glass' + (c === m.category ? " sel active" : "") + '" data-conf-cat="' + escapeAttr(c) + '">' + catIcon(c, c === m.category ? "ico-bounce" : "") + " " + escapeHtml(c) + "</button>";
         }).join("");
         grid.classList.remove("hidden");
         grid.querySelectorAll("[data-conf-cat]").forEach(function (b) {
@@ -724,7 +764,7 @@
     const p = Math.max(0, Math.min(100, pct));
     const dash = (p / 100) * c;
     const track = "rgba(255,255,255,.18)";
-    const gold = "#F5D27A";
+    const gold = "#FFFF00";
     document.getElementById("rateRing").innerHTML =
       '<svg viewBox="0 0 36 36" aria-hidden="true">' +
       '<circle cx="18" cy="18" r="' + r + '" fill="none" stroke="' + track + '" stroke-width="4"/>' +
@@ -762,7 +802,7 @@
     const rev = document.getElementById("reviewBanner");
     const n = state.review.length;
     if (n) {
-      rev.innerHTML = '<button class="banner glass warn" type="button" id="openReview"><span>\u26A1 ' + n + ' spend' + (n === 1 ? '' : 's') + ' need review</span><span class="pill gold">Review</span></button>';
+      rev.innerHTML = '<button class="banner glass warn" type="button" id="openReview">' + icon("warning") + '<span>' + n + ' spend' + (n === 1 ? '' : 's') + ' need review</span><span class="pill gold">Review</span></button>';
       document.getElementById("openReview").onclick = openReviewList;
     } else rev.innerHTML = "";
 
@@ -781,7 +821,7 @@
     const bak = document.getElementById("backupBanner");
     const due = backupDue();
     if (due) {
-      bak.innerHTML = '<button class="banner warn" type="button" id="openBackupHint"><span><strong>Time for a backup</strong><span>' + escapeHtml(due) + '</span></span><span class="chev">\u203a</span></button>';
+      bak.innerHTML = '<button class="banner warn" type="button" id="openBackupHint">' + icon("backup") + '<span><strong>Time for a backup</strong><span>' + escapeHtml(due) + '</span></span><span class="chev">\u203a</span></button>';
       document.getElementById("openBackupHint").onclick = function () { showPage("settings"); };
     } else bak.innerHTML = "";
 
@@ -794,7 +834,7 @@
     alerts.innerHTML = overs.map(function (cat) {
       const b = Number(state.budgets[cat]);
       const s = spend[cat] || 0;
-      return '<div class="banner warn" style="margin-top:8px"><span><strong>Over budget \u00b7 ' + escapeHtml(cat) + "</strong><span>" + formatINR(s) + " of " + formatINR(b) + "</span></span></div>";
+      return '<div class="banner warn" style="margin-top:8px">' + icon("warning") + '<span><strong>Over budget \u00b7 ' + escapeHtml(cat) + "</strong><span>" + formatINR(s) + " of " + formatINR(b) + "</span></span></div>";
     }).join("");
   }
 
@@ -828,15 +868,17 @@
   function chartTheme() {
     const dark = isDark();
     return {
-      text: dark ? "rgba(243,245,251,.55)" : "rgba(11,26,92,.55)",
-      grid: dark ? "rgba(255,255,255,.08)" : "rgba(11,26,92,.08)",
-      income: "#2440B8",
-      expense: "#E8B33A",
-      gold: "#E8B33A",
-      navy: "#0B1A5C"
+      text: dark ? "rgba(243,245,251,.70)" : "rgba(0,0,107,.72)",
+      grid: dark ? "rgba(255,255,255,.08)" : "rgba(0,0,107,.08)",
+      income: "#0000FF",
+      expense: dark ? "#FFFF00" : "#C8C800",
+      gold: dark ? "#FFFF00" : "#C8C800",
+      navy: "#00009E"
     };
   }
-  const CHART_PALETTE = ["#0B1A5C", "#1B2C8A", "#2440B8", "#3A56C8", "#C98E12", "#E8B33A", "#F5D27A", "#F7D984", "#8A9AD4", "#5C6FBF"];
+  const CHART_PALETTE_DARK = ["#00009E", "#0000FF", "#3A3AFF", "#5C5CFF", "#8A8AFF", "#B8B800", "#E0E000", "#FFFF00", "#FFF27A", "#7A7AFF"];
+  const CHART_PALETTE_LIGHT = ["#00006B", "#0000FF", "#3A3AFF", "#5C5CFF", "#8A8AFF", "#8A8A00", "#B8B800", "#C8C800", "#D4D400", "#E8E800"];
+  function chartPalette() { return isDark() ? CHART_PALETTE_DARK : CHART_PALETTE_LIGHT; }
 
   function setEmpty(wrapId, canvasId, message, hasData) {
     const wrap = document.getElementById(wrapId);
@@ -872,7 +914,7 @@
         type: "doughnut",
         data: {
           labels: catLabels,
-          datasets: [{ data: catLabels.map((k) => catMap[k]), backgroundColor: catLabels.map((_, i) => CHART_PALETTE[i % CHART_PALETTE.length]), borderWidth: 0 }]
+          datasets: [{ data: catLabels.map((k) => catMap[k]), backgroundColor: catLabels.map((_, i) => chartPalette()[i % chartPalette().length]), borderWidth: 0 }]
         },
         options: {
           animation: anim, responsive: true, maintainAspectRatio: false,
@@ -958,7 +1000,7 @@
       document.getElementById("methodChart").style.display = "";
       charts.method = new Chart(document.getElementById("methodChart"), {
         type: "bar",
-        data: { labels: methLabels, datasets: [{ label: "Spend", data: methLabels.map((k) => methMap[k] || 0), backgroundColor: "#E8B33A", borderRadius: 6 }] },
+        data: { labels: methLabels, datasets: [{ label: "Spend", data: methLabels.map((k) => methMap[k] || 0), backgroundColor: chartTheme().gold, borderRadius: 6 }] },
         options: {
           indexAxis: "y", animation: anim, responsive: true, maintainAspectRatio: false,
           plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => formatINR(ctx.parsed.x) } } },
@@ -1211,7 +1253,7 @@
   /* ---------- sheet (manual add/edit) ---------- */
   function renderFormChips() {
     document.getElementById("catChips").innerHTML = state.categories.map(function (c) {
-      return '<button type="button" class="chip' + (c === formCategory ? " active" : "") + '" data-cat="' + escapeAttr(c) + '">' + escapeHtml(c) + "</button>";
+      return '<button type="button" class="chip' + (c === formCategory ? " active" : "") + '" data-cat="' + escapeAttr(c) + '">' + catIcon(c, c === formCategory ? "ico-bounce" : "") + " " + escapeHtml(c) + "</button>";
     }).join("");
     document.getElementById("methodChips").innerHTML = state.methods.map(function (m) {
       return '<button type="button" class="chip' + (m === formMethod ? " active" : "") + '" data-method="' + escapeAttr(m) + '">' + escapeHtml(m) + "</button>";
@@ -1792,6 +1834,7 @@
     state = load();
     purgeReview();
     applyTheme();
+    hydrateStaticIcons();
     bindEvents();
     handleDeepLink();
     renderAll();
@@ -1803,6 +1846,8 @@
 
   window.__moneyTracker = {
     getState: function () { return state; },
+    icon: icon,
+    iconNames: Object.keys(ICO),
     renderAll: renderAll,
     formatINR: formatINR,
     parseDeepLink: parseDeepLink,
