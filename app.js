@@ -1,8 +1,22 @@
-/* Money Tracker v1 — data stays on this device */
+/* Money Tracker — data stays on this device */
 (function () {
   "use strict";
 
+  /* iCloud links for the two shared Shortcuts. Paste each link here once it is made on the iPhone
+     (Shortcuts → long-press the shortcut → Share → Copy iCloud Link). While empty, the button shows "Coming soon". */
+  const SHORTCUT_LINKS = {
+    logSpend: "",
+    applePay: ""
+  };
+
+  const APP_VERSION = "1.1.0";
+  const APP_BUILD = "2026-11-11";
+  const SCHEMA_VERSION = 2;
   const STORE_KEY = "jatin-money-tracker-v1";
+  const PRE_MIGRATE_KEY = STORE_KEY + "-backup-before-v";   /* + old schema version */
+  const PRE_RESTORE_KEY = STORE_KEY + "-backup-before-restore";
+  const UNDO_MS = 5000;
+  const DUP_WINDOW_MS = 10 * 60 * 1000;
   const DEFAULT_CATEGORIES = [
     "Food", "Shopping", "Travel", "Bills", "Fuel",
     "Entertainment", "Health", "EMI", "Rent", "Investment", "Other"
@@ -55,9 +69,15 @@
   let formMethod = "UPI";
   let confirmModel = null;
   let currentPage = "home";
+  let undoAction = null;
+
+  function defaultSetup() {
+    return { homeScreen: false, shortcutSms: false, shortcutPay: false, autoSms: false, autoWallet: false, tested: false };
+  }
 
   function emptyState() {
     return {
+      schemaVersion: SCHEMA_VERSION,
       entries: [],
       review: [],
       budgets: {},
@@ -66,30 +86,103 @@
       merchantRules: {},
       lastBackup: null,
       lastMonthNudge: null,
-      theme: "system"
+      theme: "system",
+      glass: true,
+      setup: defaultSetup()
     };
+  }
+
+  /* ---------- stored data: versioned, upgraded in place, never wiped ---------- */
+  function migrate(data, from) {
+    let d = Object.assign({}, data);
+    if (from < 2) {
+      /* v1 → v2: add schemaVersion, glass + setup settings; tidy entries without dropping any */
+      const fixed = [];
+      const parked = [];
+      (Array.isArray(d.entries) ? d.entries : []).forEach(function (e, i) {
+        if (!e || typeof e !== "object") return;
+        const amount = typeof e.amount === "number" && isFinite(e.amount) && e.amount > 0
+          ? Math.round(e.amount * 100) / 100
+          : parseAmount(e.amount);
+        const out = Object.assign({}, e, {
+          id: e.id || ("e_m" + i + "_" + Math.random().toString(36).slice(2, 7)),
+          createdAt: e.createdAt || ((normalizeDate(e.date) || todayISO()) + "T12:00:00.000Z")
+        });
+        if (amount == null) {
+          /* unreadable amount: keep it in Needs review instead of losing it */
+          parked.push({
+            id: uid("r"), type: e.type || "expense", amount: null, amountText: String(e.amount == null ? "" : e.amount),
+            category: e.category, method: e.method, date: e.date, note: e.note, merchant: e.merchant,
+            raw: "", createdAt: new Date().toISOString(), expiresAt: null
+          });
+          return;
+        }
+        out.amount = amount;
+        if (out.type === "savings") out.type = "saving";
+        fixed.push(out);
+      });
+      d.entries = fixed;
+      d.review = (Array.isArray(d.review) ? d.review : []).concat(parked);
+      if (typeof d.glass !== "boolean") d.glass = true;
+      d.setup = Object.assign(defaultSetup(), d.setup || {});
+    }
+    d.schemaVersion = Math.max(SCHEMA_VERSION, Number(d.schemaVersion) || 0);
+    return d;
+  }
+
+  function normalizeState(data) {
+    const base = emptyState();
+    return Object.assign(base, data, {
+      entries: Array.isArray(data.entries) ? data.entries : [],
+      review: Array.isArray(data.review) ? data.review : [],
+      budgets: data.budgets || {},
+      categories: Array.isArray(data.categories) && data.categories.length ? data.categories : base.categories,
+      methods: Array.isArray(data.methods) && data.methods.length ? data.methods : base.methods,
+      merchantRules: data.merchantRules || {},
+      theme: data.theme || "system",
+      glass: data.glass !== false,
+      setup: Object.assign(defaultSetup(), data.setup || {})
+    });
+  }
+
+  function schemaOf(data) {
+    return Number(data && data.schemaVersion) || 1;
   }
 
   function load() {
     try {
       const raw = localStorage.getItem(STORE_KEY);
       if (!raw) return emptyState();
-      const data = JSON.parse(raw);
+      let data = JSON.parse(raw);
       if (!data || !Array.isArray(data.entries)) return emptyState();
-      const base = emptyState();
-      return Object.assign(base, data, {
-        entries: Array.isArray(data.entries) ? data.entries : [],
-        review: Array.isArray(data.review) ? data.review : [],
-        budgets: data.budgets || {},
-        categories: Array.isArray(data.categories) && data.categories.length ? data.categories : base.categories,
-        methods: Array.isArray(data.methods) && data.methods.length ? data.methods : base.methods,
-        merchantRules: data.merchantRules || {},
-        theme: data.theme || "system"
-      });
+      const from = schemaOf(data);
+      if (from < SCHEMA_VERSION) {
+        /* keep the untouched old JSON first, so an upgrade can always be rolled back */
+        const bakKey = PRE_MIGRATE_KEY + from;
+        try { if (!localStorage.getItem(bakKey)) localStorage.setItem(bakKey, raw); } catch (e) { /* storage full: still upgrade in memory */ }
+        data = migrate(data, from);
+        const next = normalizeState(data);
+        try { localStorage.setItem(STORE_KEY, JSON.stringify(next)); } catch (e) { /* keep running in memory */ }
+        return next;
+      }
+      /* newer data than this build knows (e.g. after a rollback): keep every field as is */
+      return normalizeState(data);
     } catch (e) {
       return emptyState();
     }
   }
+
+  function requestPersistentStorage() {
+    if (!navigator.storage || !navigator.storage.persist) return;
+    const done = function (ok) { persistStatus = ok ? "Protected" : "Standard"; renderVersionInfo(); };
+    if (navigator.storage.persisted) {
+      navigator.storage.persisted().then(function (already) {
+        if (already) done(true);
+        else navigator.storage.persist().then(done).catch(function () {});
+      }).catch(function () {});
+    } else navigator.storage.persist().then(done).catch(function () {});
+  }
+  let persistStatus = "Not supported";
 
   function save() {
     localStorage.setItem(STORE_KEY, JSON.stringify(state));
@@ -236,12 +329,63 @@
     return state.categories.slice().sort((a, b) => (counts[b] - counts[a]) || a.localeCompare(b)).slice(0, n);
   }
 
-  function toast(msg) {
+  function toast(msg, action) {
     const el = document.getElementById("toast");
-    el.textContent = msg;
+    el.textContent = "";
+    const text = document.createElement("span");
+    text.textContent = msg;
+    el.appendChild(text);
+    el.classList.toggle("has-action", !!action);
+    if (action) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "toast-action";
+      b.textContent = action.label;
+      b.addEventListener("click", function () {
+        el.classList.remove("show", "has-action");
+        clearTimeout(toast._t);
+        action.run();
+      });
+      el.appendChild(b);
+    }
     el.classList.add("show");
     clearTimeout(toast._t);
-    toast._t = setTimeout(function () { el.classList.remove("show"); }, 2600);
+    toast._t = setTimeout(function () {
+      el.classList.remove("show", "has-action");
+      if (action && action.onExpire) action.onExpire();
+    }, action ? (action.ms || UNDO_MS) : 2600);
+  }
+
+  /* ---------- undo (5 seconds after a delete or edit) ---------- */
+  function offerUndo(msg, restore) {
+    const token = {};
+    undoAction = token;
+    toast(msg, {
+      label: "Undo",
+      ms: UNDO_MS,
+      run: function () {
+        if (undoAction !== token) return;
+        undoAction = null;
+        restore();
+        save();
+        renderAll();
+        toast("Restored");
+      },
+      onExpire: function () { if (undoAction === token) undoAction = null; }
+    });
+  }
+
+  function deleteEntryWithUndo(id) {
+    const index = state.entries.findIndex((e) => e.id === id);
+    if (index < 0) return;
+    const removed = state.entries[index];
+    state.entries.splice(index, 1);
+    save();
+    renderAll();
+    offerUndo("Deleted " + formatINR(removed.amount) + (removed.merchant ? " \u00b7 " + removed.merchant : ""), function () {
+      if (state.entries.some((e) => e.id === removed.id)) return;
+      state.entries.splice(Math.min(index, state.entries.length), 0, removed);
+    });
   }
 
   function entriesInMonth(key) {
@@ -381,16 +525,36 @@
     if (location.hash || location.search) history.replaceState({}, "", clean);
   }
 
-  function findDuplicate(amount, atTime) {
+  const MERCHANT_NOISE = /\b(pvt|private|ltd|limited|llp|inc|india|technologies|technology|tech|services|payments?|online|retail|store|upi|pos|www|com|in)\b/g;
+  function merchantKey(s) {
+    return String(s || "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(MERCHANT_NOISE, " ").replace(/\s+/g, "");
+  }
+
+  function merchantsMatch(a, b) {
+    const x = merchantKey(a), y = merchantKey(b);
+    if (!x || !y) return false;
+    if (x === y || x.includes(y) || y.includes(x)) return true;
+    const n = Math.min(x.length, y.length, 5);
+    return n >= 4 && x.slice(0, n) === y.slice(0, n);
+  }
+
+  /* Same amount within 10 minutes = likely duplicate (warn, never block).
+     A loosely matching merchant makes it "very likely" and is preferred when several entries qualify. */
+  function findDuplicate(amount, atTime, merchant, excludeId) {
     if (amount == null) return null;
-    const t = atTime ? new Date(atTime).getTime() : Date.now();
+    const t = atTime ? new Date(isFinite(Number(atTime)) ? Number(atTime) : atTime).getTime() : Date.now();
     if (!isFinite(t)) return null;
-    const windowMs = 10 * 60 * 1000;
-    return state.entries.find((e) => {
+    const hits = state.entries.filter((e) => {
+      if (excludeId && e.id === excludeId) return false;
       if (Math.abs(Number(e.amount) - amount) > 0.009) return false;
       const et = new Date(e.createdAt || (e.date + "T12:00:00")).getTime();
-      return isFinite(et) && Math.abs(et - t) <= windowMs;
-    }) || null;
+      return isFinite(et) && Math.abs(et - t) <= DUP_WINDOW_MS;
+    });
+    if (!hits.length) return null;
+    const strong = merchant ? hits.find((e) => merchantsMatch(e.merchant, merchant)) : null;
+    const hit = strong || hits[0];
+    const mins = Math.max(0, Math.round(Math.abs(t - new Date(hit.createdAt || (hit.date + "T12:00:00")).getTime()) / 60000));
+    return Object.assign({}, hit, { strong: !!strong, minutesApart: mins });
   }
 
   function buildDraftFromParams(params) {
@@ -421,8 +585,9 @@
       guessedCategory: guessed,
       offerRule: false,
       rememberRule: false,
-      duplicate: amount != null ? findDuplicate(amount, params.time || params.created || Date.now()) : null,
+      duplicate: amount != null ? findDuplicate(amount, params.time || params.created || Date.now(), merchant) : null,
       saved: false,
+      isTest: params.test === "1" || params.test === "true",
       source: "confirm"
     };
   }
@@ -528,7 +693,9 @@
       '<div class="confirm-amt money"><span id="confirmAmtText">' + displayConfirmAmount(rawText) + '</span>' +
       '<input id="confirmAmount" class="confirm-amt-sr" inputmode="decimal" value="' + escapeAttr(rawText) + '" placeholder="0" aria-label="Amount" /></div>';
     const dup = m.duplicate
-      ? '<div class="dup-banner glass" id="dupBanner">' + icon("duplicate") + '<div><strong>Possible duplicate</strong>Looks like a duplicate of ' + formatINR(m.duplicate.amount) + (m.duplicate.merchant || m.duplicate.category ? " \u00b7 " + escapeHtml(m.duplicate.merchant || m.duplicate.category) : "") + ". Save anyway?</div></div>"
+      ? '<div class="dup-banner glass" id="dupBanner">' + icon("duplicate") + '<div><strong>' + (m.duplicate.strong ? "Very likely a duplicate" : "Possible duplicate") + '</strong>' +
+        formatINR(m.duplicate.amount) + (m.duplicate.merchant || m.duplicate.category ? " \u00b7 " + escapeHtml(m.duplicate.merchant || m.duplicate.category) : "") +
+        " was logged " + (m.duplicate.minutesApart ? m.duplicate.minutesApart + " min away" : "less than a minute away") + ". Save anyway?</div></div>"
       : "";
     const used = mostUsedCategories(8);
     if (m.category && state.categories.includes(m.category)) {
@@ -550,7 +717,7 @@
     body.innerHTML = amtBlock +
       '<div class="confirm-merchant">' + (m.merchant ? escapeHtml(m.merchant) : "Unknown merchant") +
       " \u00b7 <button type=\"button\" class=\"method-chip pill navy\" id=\"confirmMethodBtn\">" + escapeHtml(m.method || "UPI") + "</button></div>" +
-      '<div class="confirm-meta">Detected from SMS \u00b7 ' + escapeHtml(formatConfirmDate(m.date)) + "</div>" +
+      '<div class="confirm-meta">' + (m.isTest ? "Sample SMS \u00b7 test, nothing is saved unless you tap Save" : "Detected from SMS \u00b7 " + escapeHtml(formatConfirmDate(m.date))) + "</div>" +
       dup + rule +
       '<div class="cat-scroll">' + chips +
       '<button type="button" class="chip glass" id="confirmMore">More</button></div><div class="more-grid hidden" id="confirmMoreGrid"></div>' +
@@ -698,6 +865,13 @@
 
   function skipConfirm() {
     readConfirmAmount();
+    if (confirmModel && confirmModel.isTest) {
+      clearDeepLink();
+      closeConfirm(true);
+      renderAll();
+      toast("Test finished \u2014 nothing was saved");
+      return;
+    }
     const expires = new Date();
     expires.setDate(expires.getDate() + 7);
     state.review.push({
@@ -1123,10 +1297,7 @@
         const hold = item;
         setTimeout(function () {
           if (entry && confirm("Delete this " + entry.type + " of " + formatINR(entry.amount) + "?")) {
-            state.entries = state.entries.filter((x) => x.id !== id);
-            save();
-            renderAll();
-            toast("Entry deleted");
+            deleteEntryWithUndo(id);
           } else {
             hold.style.transform = "";
             hold.classList.remove("swiped");
@@ -1222,21 +1393,185 @@
     return "https://neuraljatin.github.io/money-tracker/";
   }
 
-  function renderShortcutSteps() {
+  function manualShortcutHtml() {
     const base = appBase();
-    document.getElementById("shortcutSteps").innerHTML =
-      '<div class="step-card"><h3><span class="n">1</span>Add to Home Screen first</h3>' +
-      "<p>Open this page in Safari, tap Share, then Add to Home Screen. iPhone can wipe a normal Safari site\u2019s saved data after about 7 days without a visit. A home-screen app is mostly kept.</p></div>" +
-      '<div class="step-card"><h3><span class="n">2</span>Make a \u201cLog Spend\u201d shortcut</h3>' +
+    return '<div class="step-card glass"><h3><span class="n">A</span>Make a \u201cLog Spend\u201d shortcut</h3>' +
       "<p>In Shortcuts, Ask for Input (amount), Choose from Menu (category), Choose from Menu (payment method), optional note. URL-encode each value, then Open URLs:</p>" +
       '<p style="word-break:break-all;margin-top:6px;color:var(--text)">' + escapeHtml(base) + "#add&amp;type=expense&amp;amount=AMOUNT&amp;category=CATEGORY&amp;method=METHOD&amp;note=NOTE</p></div>" +
-      '<div class="step-card"><h3><span class="n">3</span>Or log a bank SMS</h3>' +
+      '<div class="step-card glass"><h3><span class="n">B</span>Or log a bank SMS</h3>' +
       "<p>If the shortcut reads an SMS, open this instead (amount, merchant, method and the raw text go after #, so they never reach a server):</p>" +
       '<p style="word-break:break-all;margin-top:6px;color:var(--text)">' + escapeHtml(base) + "#confirm&amp;amount=AMOUNT&amp;merchant=MERCHANT&amp;method=METHOD&amp;raw=RAW</p>" +
       '<p style="margin-top:6px">A \u201ccredited\u201d SMS is treated as income. If the amount can\u2019t be read, the confirm screen opens with the amount box focused.</p></div>' +
-      '<div class="step-card"><h3><span class="n">4</span>Put it one tap away</h3>' +
+      '<div class="step-card glass"><h3><span class="n">C</span>Put it one tap away</h3>' +
       "<p>Add the shortcut to your Home Screen, use Back Tap (Settings \u2192 Accessibility \u2192 Touch \u2192 Back Tap), or Add to Siri.</p></div>" +
       '<p class="hint">Full steps are in SHORTCUT.md in the app folder.</p>';
+  }
+
+  /* ---------- glass effect ---------- */
+  function applyGlass() {
+    const on = state.glass !== false;
+    document.documentElement.classList.toggle("no-glass", !on);
+    const t = document.getElementById("glassToggle");
+    if (t) t.setAttribute("aria-checked", on ? "true" : "false");
+  }
+
+  /* ---------- overlays opened from Settings ---------- */
+  function openOverlay(id) {
+    document.getElementById(id).classList.add("show");
+    document.body.classList.add("confirm-open");
+    const body = document.querySelector("#" + id + " .overlay-body");
+    if (body) body.scrollTop = 0;
+  }
+
+  function closeOverlay(id) {
+    document.getElementById(id).classList.remove("show");
+    if (!document.querySelector(".overlay.show")) document.body.classList.remove("confirm-open");
+  }
+
+  /* ---------- auto-detect setup ---------- */
+  function isStandalone() {
+    return window.navigator.standalone === true ||
+      (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+  }
+
+  const SETUP_STEPS = [
+    { key: "homeScreen", title: "Add to Home Screen", sub: "Keeps your data safe", auto: true },
+    { key: "shortcutSms", title: "Add \u201cLog Spend\u201d Shortcut", sub: "One tap installs it", link: "logSpend" },
+    { key: "shortcutPay", title: "Add \u201cApple Pay\u201d Shortcut", sub: "For Axis card payments", link: "applePay" },
+    {
+      key: "autoSms", title: "Turn on SMS automation", sub: "Opens Shortcuts \u00b7 about 5 taps", open: true,
+      taps: ["Tap <b>Automation</b>, then <b>+</b>", "Choose <b>Message</b>", "Set <b>Message Contains</b> to <b>debited</b>", "Choose <b>Run Immediately</b>, then <b>Next</b>", "Pick the <b>Log Spend</b> shortcut and tap <b>Done</b>"]
+    },
+    {
+      key: "autoWallet", title: "Turn on Wallet automation", sub: "Opens Shortcuts \u00b7 about 5 taps", open: true,
+      taps: ["Tap <b>Automation</b>, then <b>+</b>", "Choose <b>Wallet</b> (Transaction)", "Pick your <b>Axis</b> cards", "Choose <b>Run Immediately</b>, then <b>Next</b>", "Pick the <b>Apple Pay</b> shortcut and tap <b>Done</b>"]
+    }
+  ];
+  const CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 12.5l4 4 8-9" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+  function setupProgress() {
+    const s = state.setup || defaultSetup();
+    const done = SETUP_STEPS.filter((st) => s[st.key]).length;
+    return { done: done, total: SETUP_STEPS.length };
+  }
+
+  function syncHomeScreenStep() {
+    if (!state.setup) state.setup = defaultSetup();
+    if (isStandalone() && !state.setup.homeScreen) { state.setup.homeScreen = true; save(); }
+  }
+
+  function renderSetup() {
+    syncHomeScreenStep();
+    const s = state.setup;
+    const p = setupProgress();
+    const pct = Math.round((p.done / p.total) * 100);
+    const steps = SETUP_STEPS.map(function (st, i) {
+      const done = !!s[st.key];
+      let action = "";
+      if (st.auto) {
+        action = done
+          ? '<span class="step-state">' + CHECK_SVG + 'Done</span>'
+          : '<button type="button" class="step-act ghost" data-setup-how="1">How</button>';
+      } else if (st.link) {
+        const url = SHORTCUT_LINKS[st.link];
+        action = url
+          ? '<button type="button" class="step-act ' + (done ? "ghost" : "primary") + '" data-setup-add="' + st.key + '">' + (done ? "Add again" : "Add") + "</button>"
+          : '<button type="button" class="step-act ghost" disabled>Coming soon</button>';
+      } else if (st.open) {
+        action = '<button type="button" class="step-act ' + (done ? "ghost" : "primary") + '" data-setup-open="' + st.key + '">Open</button>';
+      }
+      const taps = st.taps
+        ? '<ol class="taps">' + st.taps.map(function (t) { return "<li>" + t + "</li>"; }).join("") + "</ol>"
+        : "";
+      const howHome = st.auto && !done
+        ? '<p class="taps-note hidden" id="setupHowHome">In Safari, tap <b>Share</b>, then <b>Add to Home Screen</b>, then open Money from your Home Screen. This step ticks itself there.</p>'
+        : "";
+      const mark = st.auto ? "" :
+        '<button type="button" class="linkish step-mark" data-setup-mark="' + st.key + '">' + (done ? "Mark as not done" : "I\u2019ve done this") + "</button>";
+      return '<div class="setup-step' + (done ? " done" : "") + '" data-step="' + st.key + '">' +
+        '<span class="step-n">' + (done ? CHECK_SVG : String(i + 1)) + "</span>" +
+        '<div class="grow"><div class="name">' + st.title + '</div><div class="sub">' + st.sub + "</div>" + taps + howHome + mark + "</div>" +
+        action + "</div>";
+    }).join("");
+    document.getElementById("setupBody").innerHTML =
+      '<div class="page-title"><h1>Auto-detect setup</h1></div>' +
+      '<div class="card glass setup-progress"><div class="row"><strong id="setupCount">' + p.done + " of " + p.total + ' done</strong><span class="mut">About 2 minutes \u00b7 one time only</span></div>' +
+      '<div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="' + p.total + '" aria-valuenow="' + p.done + '"><span style="width:' + pct + '%"></span></div></div>' +
+      '<div class="set-card glass setup-steps">' + steps + "</div>" +
+      '<div class="set-card glass setup-test"><div class="setup-step"><span class="step-n">' + (s.tested ? CHECK_SVG : "\u25B6") + '</span>' +
+      '<div class="grow"><div class="name">Test it</div><div class="sub">Sends a sample SMS so you can see \u201cLog this spend?\u201d. Nothing is saved unless you tap Save.</div></div>' +
+      '<button type="button" class="step-act primary" id="setupTest">Test</button></div></div>' +
+      '<p class="hint">iPhone does not let any app switch on an automation by itself, so steps 4 and 5 are a one-time job in the Shortcuts app.</p>' +
+      '<div class="set-group"><h2>Build the Shortcut yourself</h2>' + manualShortcutHtml() + "</div>";
+
+    const body = document.getElementById("setupBody");
+    body.querySelectorAll("[data-setup-add]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        const st = SETUP_STEPS.find((x) => x.key === b.getAttribute("data-setup-add"));
+        const url = st && SHORTCUT_LINKS[st.link];
+        if (!url) return;
+        state.setup[st.key] = true; save(); renderSetup();
+        window.location.href = url;
+      });
+    });
+    body.querySelectorAll("[data-setup-open]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        window.location.href = "shortcuts://";
+      });
+    });
+    body.querySelectorAll("[data-setup-mark]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        const k = b.getAttribute("data-setup-mark");
+        state.setup[k] = !state.setup[k]; save(); renderSetup();
+      });
+    });
+    const how = body.querySelector("[data-setup-how]");
+    if (how) how.addEventListener("click", function () {
+      const el = document.getElementById("setupHowHome");
+      if (el) el.classList.toggle("hidden");
+    });
+    document.getElementById("setupTest").addEventListener("click", runSetupTest);
+  }
+
+  function runSetupTest() {
+    state.setup.tested = true;
+    save();
+    closeOverlay("setupOverlay");
+    const sms = "Rs.249.00 debited from A/c XX1234 on " + formatConfirmDate(todayISO()) + " via UPI to SWIGGY. Not you? Call your bank.";
+    const frag = "confirm&test=1&amount=249&merchant=SWIGGY&method=UPI&sms=" + encodeURIComponent(sms);
+    if (location.hash.replace(/^#/, "") === frag) handleDeepLink();
+    else location.hash = frag;
+  }
+
+  function openSetup() {
+    renderSetup();
+    openOverlay("setupOverlay");
+  }
+
+  /* ---------- info ---------- */
+  function openInfo() {
+    renderVersionInfo();
+    openOverlay("infoOverlay");
+  }
+
+  function renderVersionInfo() {
+    const label = "Version " + APP_VERSION + " \u00b7 " + APP_BUILD;
+    document.querySelectorAll("[data-app-version]").forEach(function (el) { el.textContent = label; });
+    const vr = document.getElementById("versionRight");
+    if (vr) vr.textContent = APP_VERSION;
+    const ps = document.getElementById("infoStorage");
+    if (ps) ps.textContent = "On this phone only (localStorage) \u00b7 storage protection: " + persistStatus + " \u00b7 data format v" + (state.schemaVersion || SCHEMA_VERSION);
+  }
+
+  function renderSettingsExtras() {
+    syncHomeScreenStep();
+    const p = setupProgress();
+    const el = document.getElementById("setupProgressLabel");
+    if (el) el.textContent = p.done + " of " + p.total;
+    const fill = document.getElementById("setupMiniFill");
+    if (fill) fill.style.width = Math.round((p.done / p.total) * 100) + "%";
+    applyGlass();
+    renderVersionInfo();
   }
 
   function renderAll() {
@@ -1247,7 +1582,7 @@
     renderActivity();
     renderBudgets();
     renderPills();
-    renderShortcutSteps();
+    renderSettingsExtras();
   }
 
   /* ---------- sheet (manual add/edit) ---------- */
@@ -1567,20 +1902,17 @@
   }
 
   function restoreFromJson(text) {
-    const data = JSON.parse(text);
+    let data = JSON.parse(text);
     if (!data || !Array.isArray(data.entries)) throw new Error("Not a valid backup file");
-    const base = emptyState();
-    state = Object.assign(base, data, {
-      entries: data.entries,
-      review: Array.isArray(data.review) ? data.review : [],
-      budgets: data.budgets || {},
-      categories: Array.isArray(data.categories) && data.categories.length ? data.categories : base.categories,
-      methods: Array.isArray(data.methods) && data.methods.length ? data.methods : base.methods,
-      merchantRules: data.merchantRules || {},
-      theme: data.theme || state.theme || "system"
-    });
+    try { localStorage.setItem(PRE_RESTORE_KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
+    const from = schemaOf(data);
+    if (from < SCHEMA_VERSION) data = migrate(data, from);
+    const keep = { theme: state.theme, glass: state.glass, setup: state.setup };
+    state = normalizeState(Object.assign({ theme: keep.theme, glass: keep.glass, setup: keep.setup }, data));
     save();
+    applyGlass();
     renderAll();
+    return state.entries.length;
   }
 
   function parseCsv(text) {
@@ -1696,6 +2028,9 @@
       ev.preventDefault();
       const id = document.getElementById("entryId").value;
       const existing = id ? state.entries.find((e) => e.id === id) : null;
+      const before = existing ? JSON.parse(JSON.stringify(existing)) : null;
+      const newAmount = parseAmount(document.getElementById("amount").value);
+      const dupe = !existing && newAmount != null ? findDuplicate(newAmount, Date.now(), document.getElementById("merchant").value) : null;
       const entry = commitEntry({
         id: id || undefined,
         createdAt: existing ? existing.createdAt : undefined,
@@ -1712,14 +2047,26 @@
       viewMonth = entry.date.slice(0, 7);
       closeSheet();
       renderAll();
-      toast("Saved " + formatINR(entry.amount) + " \u00b7 " + entry.category);
+      if (before) {
+        offerUndo("Edited " + formatINR(entry.amount) + " \u00b7 " + entry.category, function () {
+          const ix = state.entries.findIndex((e) => e.id === before.id);
+          if (ix >= 0) state.entries[ix] = before; else state.entries.unshift(before);
+          viewMonth = before.date.slice(0, 7);
+        });
+      } else if (dupe) {
+        offerUndo("Saved \u2014 " + (dupe.strong ? "very likely" : "possibly") + " a duplicate of " + formatINR(dupe.amount) + (dupe.merchant ? " \u00b7 " + dupe.merchant : ""), function () {
+          state.entries = state.entries.filter((e) => e.id !== entry.id);
+        });
+      } else {
+        toast("Saved " + formatINR(entry.amount) + " \u00b7 " + entry.category);
+      }
     });
 
     document.getElementById("deleteEntry").addEventListener("click", function () {
       const id = document.getElementById("entryId").value;
       if (!id) return;
-      state.entries = state.entries.filter((e) => e.id !== id);
-      save(); closeSheet(); renderAll(); toast("Entry deleted");
+      closeSheet();
+      deleteEntryWithUndo(id);
     });
 
     document.getElementById("typeFilters").addEventListener("click", function (ev) {
@@ -1759,7 +2106,7 @@
       if (!confirm("Restore will replace all current entries. Continue?")) return;
       const reader = new FileReader();
       reader.onload = function () {
-        try { restoreFromJson(String(reader.result)); toast("Backup restored"); }
+        try { const n = restoreFromJson(String(reader.result)); toast("Backup restored \u00b7 " + n + " entr" + (n === 1 ? "y" : "ies")); }
         catch (err) { toast("Could not restore: " + err.message); }
       };
       reader.readAsText(file);
@@ -1813,11 +2160,21 @@
     });
     document.getElementById("btnClear").addEventListener("click", function () {
       if (!confirm("Delete all entries, budgets and rules on this device?")) return;
-      const theme = state.theme;
-      state = emptyState();
-      state.theme = theme;
-      save(); renderAll(); toast("All data cleared");
+      const snapshot = JSON.stringify(state);
+      const keep = { theme: state.theme, glass: state.glass, setup: state.setup };
+      state = Object.assign(emptyState(), keep);
+      save(); renderAll();
+      offerUndo("All data cleared", function () { state = normalizeState(JSON.parse(snapshot)); });
     });
+
+    document.getElementById("glassToggle").addEventListener("click", function () {
+      state.glass = state.glass === false;
+      save(); applyGlass();
+    });
+    document.getElementById("openSetup").addEventListener("click", openSetup);
+    document.getElementById("openInfo").addEventListener("click", openInfo);
+    document.getElementById("setupClose").addEventListener("click", function () { closeOverlay("setupOverlay"); renderSettingsExtras(); });
+    document.getElementById("infoClose").addEventListener("click", function () { closeOverlay("infoOverlay"); });
 
     window.addEventListener("hashchange", handleDeepLink);
     window.matchMedia("(prefers-color-scheme: light)").addEventListener("change", function () {
@@ -1834,11 +2191,13 @@
     state = load();
     purgeReview();
     applyTheme();
+    applyGlass();
     hydrateStaticIcons();
     bindEvents();
     handleDeepLink();
     renderAll();
     registerSW();
+    requestPersistentStorage();
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
@@ -1852,6 +2211,11 @@
     formatINR: formatINR,
     parseDeepLink: parseDeepLink,
     findDuplicate: findDuplicate,
-    load: function () { state = load(); renderAll(); }
+    merchantsMatch: merchantsMatch,
+    migrate: migrate,
+    version: APP_VERSION,
+    schemaVersion: SCHEMA_VERSION,
+    shortcutLinks: SHORTCUT_LINKS,
+    load: function () { state = load(); applyGlass(); renderAll(); }
   };
 })();

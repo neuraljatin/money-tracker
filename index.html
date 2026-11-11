@@ -127,6 +127,9 @@
           <button type="button" data-theme-val="dark" class="active">Dark</button>
           <button type="button" data-theme-val="system">Auto</button>
         </div>
+        <div class="set-card glass">
+          <button class="set-row" type="button" id="glassToggle" role="switch" aria-checked="true"><span data-ico="generic"></span><span class="grow">Glass effect<span class="sub row-sub">Turn off for solid cards and a smoother phone</span></span><span class="switch" aria-hidden="true"></span></button>
+        </div>
       </div>
 
       <div class="set-group">
@@ -143,8 +146,11 @@
       <input class="hidden" type="file" id="fileCsv" accept=".csv,text/csv" />
 
       <div class="set-group">
-        <h2>Shortcut setup</h2>
-        <div id="shortcutSteps"></div>
+        <h2>Auto-detect</h2>
+        <div class="set-card glass">
+          <button class="set-row" type="button" id="openSetup"><span data-ico="check"></span><span class="grow">Auto-detect setup<span class="mini-bar"><span id="setupMiniFill"></span></span></span><span class="right" id="setupProgressLabel">0 of 5</span><span class="chev">&rsaquo;</span></button>
+          <button class="set-row" type="button" id="openInfo"><span data-ico="note"></span><span class="grow">About &amp; info</span><span class="right" id="versionRight"></span><span class="chev">&rsaquo;</span></button>
+        </div>
       </div>
 
       <div class="set-group">
@@ -177,6 +183,7 @@
       </div>
 
       <button class="btn btn-danger" type="button" id="btnClear">Clear all data</button>
+      <p class="hint app-version" data-app-version>Version</p>
     </section>
   </main>
 
@@ -275,7 +282,116 @@
     <div class="overlay-body" id="reviewBody"></div>
   </div>
 
-  <div class="toast" id="toast" role="status"></div>
+  <!-- Auto-detect setup -->
+  <div class="overlay" id="setupOverlay" role="dialog" aria-labelledby="setupTitle" aria-modal="true">
+    <div class="overlay-head">
+      <button class="icon-btn glass" type="button" id="setupClose" aria-label="Back to Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6 9 12l6 6"/></svg>
+      </button>
+      <strong id="setupTitle">Auto-detect setup</strong>
+      <span style="width:44px"></span>
+    </div>
+    <div class="overlay-body" id="setupBody"></div>
+  </div>
+
+  <!-- Info -->
+  <div class="overlay" id="infoOverlay" role="dialog" aria-labelledby="infoTitle" aria-modal="true">
+    <div class="overlay-head">
+      <button class="icon-btn glass" type="button" id="infoClose" aria-label="Back to Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6 9 12l6 6"/></svg>
+      </button>
+      <strong id="infoTitle">About &amp; info</strong>
+      <span style="width:44px"></span>
+    </div>
+    <div class="overlay-body info" id="infoBody">
+      <div class="page-title"><h1>About &amp; info</h1></div>
+      <div class="hero info-hero">
+        <div style="flex:1;min-width:0">
+          <div class="hero-k k">Money Tracker</div>
+          <div class="info-lead">Logs every rupee. A bank SMS or Apple Pay payment asks &ldquo;Log this spend?&rdquo;, and one tap saves it. Everything stays on your phone.</div>
+          <div class="hero-sub" data-app-version>Version</div>
+        </div>
+      </div>
+      <div class="tiles">
+        <div class="stat glass"><div class="stat-k k">To log a spend</div><div class="stat-v">1 tap</div></div>
+        <div class="stat glass"><div class="stat-k k">Servers or sign-ups</div><div class="stat-v">0</div></div>
+      </div>
+
+      <div class="set-group"><h2>Features</h2>
+        <div class="card glass info-card"><ul class="info-list">
+          <li>Auto-detect spends from bank SMS (Axis, OneCard, UPI) and Apple Pay on Axis cards</li>
+          <li>Confirm screen filled in with amount, merchant, method and a guessed category. Save or Skip.</li>
+          <li>Home: month picker, income, spent, savings, net and savings rate</li>
+          <li>Charts by category, by day, 6-month income vs expenses, and by payment method</li>
+          <li>Budgets per category with green, amber and red bars</li>
+          <li>Activity: search, filter, edit, swipe to delete (with Undo), Needs review list</li>
+          <li>Excel export with 4 sheets, JSON backup and restore, CSV import</li>
+          <li>Works offline, dark and light mode, Glass effect switch</li>
+        </ul></div>
+      </div>
+
+      <div class="set-group"><h2>How auto-detect works</h2>
+        <div class="card glass info-card"><ol class="info-list">
+          <li><b>Add to Home Screen first.</b> iPhone keeps a Home Screen app&rsquo;s data but may clear a website&rsquo;s data.</li>
+          <li><b>Shortcuts &rarr; Automation &rarr; Message:</b> when a text contains &ldquo;debited&rdquo;, the Shortcut reads the amount and merchant.</li>
+          <li><b>Shortcuts &rarr; Automation &rarr; Wallet:</b> runs when you pay with Apple Pay on your Axis cards.</li>
+          <li>The app opens at <code>#confirm&amp;amount=&hellip;</code>. The details sit after <b>#</b>, so they never leave the phone.</li>
+          <li>Check the category and tap <b>Save</b>. <b>Skip</b> moves it to Needs review.</li>
+        </ol>
+        <p class="hint">&ldquo;Credited&rdquo; means income. The same amount within 10 minutes shows a duplicate warning (a matching merchant makes it &ldquo;very likely&rdquo;), but you can still save it.</p></div>
+      </div>
+
+      <div class="set-group"><h2>Data &amp; privacy</h2>
+        <div class="set-card glass">
+          <div class="set-row"><span class="grow">Storage<span class="sub row-sub" id="infoStorage">On this phone only</span></span></div>
+          <div class="set-row"><span class="grow">Backup<span class="sub row-sub">JSON file, with a reminder every 14 days</span></span></div>
+          <div class="set-row"><span class="grow">Export<span class="sub row-sub">Excel (.xlsx), 4 sheets</span></span></div>
+          <div class="set-row"><span class="grow">Updates<span class="sub row-sub">Your data is upgraded in place, and the old copy is kept on the phone first</span></span></div>
+          <div class="set-row"><span class="grow">Hosting<span class="sub row-sub">GitHub Pages &middot; no account, no server database</span></span></div>
+        </div>
+      </div>
+
+      <div class="set-group"><h2>Theme &amp; logo</h2>
+        <div class="card glass info-card">
+          <div class="swatches">
+            <span class="swatch" style="background:#00002E"></span><span class="swatch" style="background:#0000FF"></span><span class="swatch" style="background:#FFFF00"></span><span class="swatch" style="background:#F7F8FC"></span>
+          </div>
+          <p class="hint">Glass cards on a navy, blue and yellow gradient, in dark and light mode. The NJ monogram is the app icon. The flow is inspired by Tappy, with our own colours, name and icon.</p>
+        </div>
+      </div>
+
+      <div class="set-group"><h2>Reliability &middot; v1</h2>
+        <div class="card glass info-card"><ul class="info-list status-list">
+          <li><span class="pill gold">Done</span>Undo for 5 seconds after a delete or edit</li>
+          <li><span class="pill gold">Done</span>Safe data upgrades with a saved copy of the old data</li>
+          <li><span class="pill gold">Done</span>Ask iPhone to keep the app&rsquo;s storage (persistent storage)</li>
+          <li><span class="pill gold">Done</span>Version shown in Settings, and new builds replace the old cache</li>
+          <li><span class="pill gold">Done</span>Needs review list for SMS the app couldn&rsquo;t read</li>
+          <li><span class="pill gold">Done</span>Glass effect switch, Reduce Transparency and Reduce Motion support</li>
+          <li><span class="pill">Next</span>Weekly encrypted backup to iCloud Drive or Files, with a checked restore</li>
+          <li><span class="pill">Next</span>App lock with Face ID or a passcode</li>
+          <li><span class="pill">Next</span>Self-check on open, and an &ldquo;Update available&rdquo; banner</li>
+          <li><span class="pill">Next</span>Bank SMS sample library, and the test list run before each release</li>
+          <li><span class="pill">Next</span>Report a problem: an error log with no amounts or merchants</li>
+        </ul></div>
+      </div>
+
+      <div class="set-group"><h2>More advanced &middot; v2</h2>
+        <div class="card glass info-card"><ul class="info-list">
+          <li>Recurring spends: rent, EMIs, SIPs and subscriptions, with reminders</li>
+          <li>Smart insights and alerts, like &ldquo;Food is up 32% vs last month&rdquo;, and a month-end forecast</li>
+          <li>Monthly report with top merchants, this month vs last</li>
+          <li>Savings goals with progress rings, and a credit card bill view for Axis and OneCard</li>
+          <li>Split bills with friends and track who owes what</li>
+          <li>Home Screen widgets, receipt photos and bank statement import</li>
+          <li>Optional encrypted sync between iPhone and laptop</li>
+        </ul></div>
+      </div>
+      <p class="hint app-version">Made by NJ &middot; <span data-app-version>Version</span></p>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
   <script src="./chart.umd.min.js"></script>
   <script src="./xlsx.full.min.js"></script>
