@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en-IN" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0B0F1A" />
+  <meta name="color-scheme" content="dark light" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Money" />
+  <meta name="description" content="Track spending and savings on your iPhone." />
+  <title>Money Tracker</title>
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="icon" type="image/png" href="./favicon.png" />
+  <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="app-header" id="appHeader">
+    <div class="brand-row">
+      <div class="brand">
+        <img src="./icon-192.png" alt="" />
+        <div>
+          <h1>Money Tracker</h1>
+          <p class="sub">Spend, save, see clearly</p>
+        </div>
+      </div>
+    </div>
+    <div class="month-nav" id="monthNav">
+      <button type="button" class="icon-btn" id="prevMonth" aria-label="Previous month">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6 9 12l6 6"/></svg>
+      </button>
+      <div class="label" id="monthLabel">November 2026</div>
+      <button type="button" class="icon-btn" id="nextMonth" aria-label="Next month">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <section class="page active" id="page-home" data-page="home">
+      <div class="hero">
+        <div class="ring" id="rateRing" aria-hidden="true"></div>
+        <div>
+          <div class="hero-k">Savings this month</div>
+          <div class="hero-amt money" id="sumSaving">₹0</div>
+          <div class="hero-sub" id="sumRateLabel">Savings rate 0%</div>
+        </div>
+      </div>
+      <div class="tiles">
+        <div class="stat income"><div class="stat-k">Income</div><div class="stat-v money" id="sumIncome">₹0</div></div>
+        <div class="stat expense"><div class="stat-k">Expenses</div><div class="stat-v money" id="sumExpense">₹0</div></div>
+        <div class="stat net"><div class="stat-k">Net</div><div class="stat-v money" id="sumNet">₹0</div></div>
+      </div>
+      <div id="reviewBanner"></div>
+      <div id="nudgeBanner"></div>
+      <div id="backupBanner"></div>
+      <div id="budgetAlerts"></div>
+
+      <div class="section">
+        <h2>Where the money went</h2>
+        <div class="card">
+          <h3>Spend by category</h3>
+          <div class="chart-wrap" id="catChartWrap"><canvas id="catChart"></canvas></div>
+          <ul class="top-list" id="topCats"></ul>
+        </div>
+        <div class="card">
+          <h3>Daily spend</h3>
+          <div class="chart-wrap" id="dailyChartWrap"><canvas id="dailyChart"></canvas></div>
+        </div>
+        <div class="card">
+          <h3>Income vs expenses · 6 months</h3>
+          <div class="chart-wrap tall" id="trendChartWrap"><canvas id="trendChart"></canvas></div>
+        </div>
+        <div class="card">
+          <h3>By payment method</h3>
+          <div class="chart-wrap" id="methodChartWrap"><canvas id="methodChart"></canvas></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="page-activity" data-page="activity">
+      <div class="search-row">
+        <input id="search" type="search" placeholder="Search notes, merchants, amounts" enterkeyhint="search" />
+      </div>
+      <div class="filter-row" id="typeFilters">
+        <button class="chip active" type="button" data-filter="all">All</button>
+        <button class="chip" type="button" data-filter="expense">Expenses</button>
+        <button class="chip" type="button" data-filter="income">Income</button>
+        <button class="chip" type="button" data-filter="saving">Savings</button>
+      </div>
+      <div class="filter-row" id="extraFilters"></div>
+      <div id="activityList"></div>
+    </section>
+
+    <section class="page" id="page-budgets" data-page="budgets">
+      <div class="card budget-total">
+        <h3>This month’s total budget</h3>
+        <div class="hero-amt money" id="budgetTotalAmt" style="font-size:28px;margin:0 0 8px;">₹0</div>
+        <div class="fig hint" id="budgetTotalFig" style="margin:0 0 8px;">No budgets set yet. Tap a category to add one.</div>
+        <div class="bar" id="budgetTotalBar"><span id="budgetTotalFill"></span></div>
+      </div>
+      <div id="budgetList"></div>
+    </section>
+
+    <section class="page" id="page-settings" data-page="settings">
+      <div class="set-group">
+        <h2>Look and feel</h2>
+        <div class="set-card">
+          <div class="theme-seg" id="themeSeg">
+            <button type="button" data-theme-val="system">System</button>
+            <button type="button" data-theme-val="dark" class="active">Dark</button>
+            <button type="button" data-theme-val="light">Light</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="set-group">
+        <h2>Export and backup</h2>
+        <div class="set-card">
+          <button class="set-row" type="button" id="btnExcel">Download Excel<span class="right">.xlsx</span></button>
+          <button class="set-row" type="button" id="btnBackup">Download JSON backup<span class="right" id="lastBackupLabel">Never</span></button>
+          <button class="set-row" type="button" id="btnRestore">Restore from JSON</button>
+          <button class="set-row" type="button" id="btnCsv">Import CSV</button>
+        </div>
+        <p class="hint">A backup every couple of weeks is wise. iPhone may clear site data if you only open this in Safari and stay away for about a week. Add it to your Home Screen to keep it safer.</p>
+      </div>
+      <input class="hidden" type="file" id="fileRestore" accept="application/json,.json" />
+      <input class="hidden" type="file" id="fileCsv" accept=".csv,text/csv" />
+
+      <div class="set-group">
+        <h2>Shortcut setup</h2>
+        <div id="shortcutSteps"></div>
+      </div>
+
+      <div class="set-group">
+        <h2>Categories</h2>
+        <div class="manage-row">
+          <input id="newCat" placeholder="Add a category" maxlength="32" />
+          <button class="btn" type="button" id="addCat" style="width:auto;padding:0 16px;height:44px;">Add</button>
+        </div>
+        <div class="pill-wrap" id="catPills"></div>
+      </div>
+
+      <div class="set-group">
+        <h2>Merchant rules</h2>
+        <p class="hint">Example: always use Food for Swiggy. Rules apply when a payment arrives from a shortcut or SMS.</p>
+        <div class="manage-row">
+          <input id="ruleMerchant" placeholder="Merchant, e.g. Swiggy" maxlength="40" />
+          <input id="ruleCategory" placeholder="Category" maxlength="32" />
+          <button class="btn" type="button" id="addRule" style="width:auto;padding:0 16px;height:44px;">Add</button>
+        </div>
+        <div class="pill-wrap" id="rulePills"></div>
+      </div>
+
+      <div class="set-group">
+        <h2>Payment methods</h2>
+        <div class="manage-row">
+          <input id="newMethod" placeholder="Add a payment method" maxlength="32" />
+          <button class="btn" type="button" id="addMethod" style="width:auto;padding:0 16px;height:44px;">Add</button>
+        </div>
+        <div class="pill-wrap" id="methodPills"></div>
+      </div>
+
+      <button class="btn btn-danger" type="button" id="btnClear">Clear all data</button>
+    </section>
+  </main>
+
+  <button class="fab show" type="button" id="fabAdd" aria-label="Add entry">+</button>
+
+  <nav class="tab-bar" aria-label="Main">
+    <button class="tab-btn active" type="button" data-nav="home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5 12 4l8 7.5"/><path d="M6 10.5V20h12v-9.5"/></svg>
+      Home
+    </button>
+    <button class="tab-btn" type="button" data-nav="activity">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 7h12M8 12h12M8 17h12"/><circle cx="4.5" cy="7" r="1" fill="currentColor"/><circle cx="4.5" cy="12" r="1" fill="currentColor"/><circle cx="4.5" cy="17" r="1" fill="currentColor"/></svg>
+      Activity
+    </button>
+    <button class="tab-btn" type="button" data-nav="budgets">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19V5M4 19h16M8 16V9M12 16V7M16 16v-4"/></svg>
+      Budgets
+    </button>
+    <button class="tab-btn" type="button" data-nav="settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      Settings
+    </button>
+  </nav>
+
+  <!-- Confirm (full-screen) -->
+  <div class="overlay" id="confirmOverlay" role="dialog" aria-labelledby="confirmTitle" aria-modal="true">
+    <div class="overlay-head">
+      <button class="icon-btn" type="button" id="confirmClose" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+      <strong id="confirmTitle">Confirm payment</strong>
+      <span style="width:44px"></span>
+    </div>
+    <div class="overlay-body" id="confirmBody"></div>
+    <div class="overlay-foot" id="confirmFoot"></div>
+  </div>
+
+  <!-- Manual add / edit sheet -->
+  <div class="sheet-backdrop" id="backdrop"></div>
+  <div class="sheet" id="sheet" role="dialog" aria-labelledby="sheetTitle" aria-modal="true">
+    <div class="grab"></div>
+    <h2 id="sheetTitle">Add entry</h2>
+    <form id="entryForm" autocomplete="off">
+      <input type="hidden" id="entryId" />
+      <div class="field">
+        <label>Type</label>
+        <div class="seg three" id="typeSeg">
+          <button type="button" data-type="expense" class="active expense">Expense</button>
+          <button type="button" data-type="income" class="income">Income</button>
+          <button type="button" data-type="saving" class="saving">Saving</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="amount">Amount (₹)</label>
+        <input class="amount-input" id="amount" inputmode="decimal" type="text" placeholder="0" required />
+      </div>
+      <div class="field">
+        <label>Category</label>
+        <div class="chips" id="catChips"></div>
+        <button class="linkish" type="button" id="quickAddCat">+ New category</button>
+      </div>
+      <div class="field">
+        <label>Payment method</label>
+        <div class="chips" id="methodChips"></div>
+        <button class="linkish" type="button" id="quickAddMethod">+ New method</button>
+      </div>
+      <div class="field">
+        <label for="merchant">Merchant <span style="font-weight:400">(optional)</span></label>
+        <input id="merchant" type="text" maxlength="60" placeholder="e.g. Swiggy" />
+      </div>
+      <div class="field">
+        <label for="date">Date</label>
+        <input id="date" type="date" required />
+      </div>
+      <div class="field">
+        <label for="note">Note</label>
+        <input id="note" type="text" maxlength="120" placeholder="Optional" />
+      </div>
+      <div class="btn-row" style="grid-template-columns:1fr 1.4fr;">
+        <button class="btn" type="button" id="cancelSheet">Cancel</button>
+        <button class="btn btn-primary" type="submit" id="saveEntry">Save</button>
+      </div>
+      <button class="btn btn-danger hidden" type="button" id="deleteEntry" style="margin-top:8px;">Delete entry</button>
+    </form>
+  </div>
+
+  <!-- Review list overlay -->
+  <div class="overlay" id="reviewOverlay" role="dialog" aria-labelledby="reviewTitle" aria-modal="true">
+    <div class="overlay-head">
+      <button class="icon-btn" type="button" id="reviewClose" aria-label="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+      <strong id="reviewTitle">Needs review</strong>
+      <span style="width:44px"></span>
+    </div>
+    <div class="overlay-body" id="reviewBody"></div>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <script src="./chart.umd.min.js"></script>
+  <script src="./xlsx.full.min.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
