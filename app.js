@@ -262,10 +262,14 @@
     return CAT_COLOR[name] || CAT_COLOR.Other;
   }
 
+  const CAT_EMOJI = {
+    Food: "\uD83C\uDF54", Shopping: "\uD83D\uDECD\uFE0F", Travel: "\uD83D\uDE95", Bills: "\uD83E\uDDFE",
+    Fuel: "\u26FD", Health: "\uD83D\uDC8A", Entertainment: "\uD83C\uDFAC", EMI: "\uD83D\uDCB3",
+    Rent: "\uD83C\uDFE0", Investment: "\uD83D\uDCC8", Other: "\uD83D\uDCE6"
+  };
   function catIcon(name) {
-    const color = catColor(name);
-    const path = ICON_PATHS[name] || ICON_PATHS.Other;
-    return '<span class="cat-icon" style="background:' + color + '22;color:' + color + '" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + path + "</svg></span>";
+    const emo = CAT_EMOJI[name] || "\u2728";
+    return '<span class="cat-icon em" aria-hidden="true">' + emo + "</span>";
   }
 
   function isDark() {
@@ -282,7 +286,7 @@
     const resolved = resolveTheme(state.theme || "system");
     document.documentElement.setAttribute("data-theme", resolved);
     const meta = document.querySelector('meta[name="theme-color"]');
-    if (meta) meta.setAttribute("content", resolved === "dark" ? "#0B0F1A" : "#F6F7FB");
+    if (meta) meta.setAttribute("content", resolved === "dark" ? "#070B24" : "#F7F8FC");
     const bar = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
     if (bar) bar.setAttribute("content", resolved === "dark" ? "black-translucent" : "default");
     document.querySelectorAll("#themeSeg button").forEach((b) => {
@@ -449,6 +453,21 @@
     return dt.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
   }
 
+  function displayConfirmAmount(cur) {
+    if (!cur) return "\u20B90";
+    if (/^\d+$/.test(cur)) return formatINR(Number(cur));
+    return "\u20B9" + cur;
+  }
+
+  function applyConfirmAmountText(cur) {
+    confirmModel.amountText = cur;
+    confirmModel.amount = parseAmount(cur);
+    const text = document.getElementById("confirmAmtText");
+    const inp = document.getElementById("confirmAmount");
+    if (text) text.textContent = displayConfirmAmount(cur);
+    if (inp) inp.value = cur;
+  }
+
   function renderConfirm() {
     const m = confirmModel;
     const body = document.getElementById("confirmBody");
@@ -456,46 +475,77 @@
     if (!m) return;
     if (m.saved) {
       body.innerHTML = '<div class="saved-check"><div class="mark">\u2713</div><h2>Saved</h2><p>You can go back to Messages now.</p></div>';
-      foot.innerHTML = '<button class="btn btn-primary" type="button" id="confirmDone">Done</button>';
+      foot.innerHTML = '<div class="confirm-actions"><button class="btn btn-primary" type="button" id="confirmDone">Done</button></div>';
       document.getElementById("confirmDone").onclick = function () { closeConfirm(true); renderAll(); };
       return;
     }
-    const amtBlock = (m.amount != null && !m.forceAmountEdit)
-      ? '<div class="confirm-amt money">' + formatINR(m.amount) + "</div>"
-      : '<div class="confirm-amt"><input id="confirmAmount" inputmode="decimal" value="' + escapeAttr(m.amountText || "") + '" placeholder="0" aria-label="Amount" /></div>';
+    const rawText = (m.amountText != null && String(m.amountText) !== "")
+      ? String(m.amountText)
+      : (m.amount != null ? String(m.amount) : "");
+    const kicker = m.type === "income" ? "Log this income?" : "Log this spend?";
+    const amtBlock =
+      '<div class="confirm-kicker">' + kicker + "</div>" +
+      '<div class="confirm-amt money"><span id="confirmAmtText">' + displayConfirmAmount(rawText) + '</span>' +
+      '<input id="confirmAmount" class="confirm-amt-sr" inputmode="decimal" value="' + escapeAttr(rawText) + '" placeholder="0" aria-label="Amount" /></div>';
     const dup = m.duplicate
-      ? '<div class="dup-banner" id="dupBanner"><strong>Possible duplicate</strong>Looks like a duplicate of ' + formatINR(m.duplicate.amount) + (m.duplicate.merchant || m.duplicate.category ? " \u00b7 " + escapeHtml(m.duplicate.merchant || m.duplicate.category) : "") + ". Save anyway?</div>"
+      ? '<div class="dup-banner glass" id="dupBanner"><strong>Possible duplicate</strong>Looks like a duplicate of ' + formatINR(m.duplicate.amount) + (m.duplicate.merchant || m.duplicate.category ? " \u00b7 " + escapeHtml(m.duplicate.merchant || m.duplicate.category) : "") + ". Save anyway?</div>"
       : "";
     const used = mostUsedCategories(8);
-    if (!used.includes(m.category) && state.categories.includes(m.category)) used.unshift(m.category);
+    if (m.category && state.categories.includes(m.category)) {
+      const ix = used.indexOf(m.category);
+      if (ix >= 0) used.splice(ix, 1);
+      used.unshift(m.category);
+    }
     const chips = used.filter(function (v, i, a) { return a.indexOf(v) === i; }).slice(0, 8).map(function (c) {
-      return '<button type="button" class="chip' + (c === m.category ? " active" : "") + '" data-conf-cat="' + escapeAttr(c) + '">' + escapeHtml(c) + "</button>";
+      return '<button type="button" class="chip glass' + (c === m.category ? " sel active" : "") + '" data-conf-cat="' + escapeAttr(c) + '">' + catIcon(c) + " " + escapeHtml(c) + "</button>";
     }).join("");
     const rule = (m.offerRule && m.merchant)
-      ? '<div class="rule-banner">Always use ' + escapeHtml(m.category) + " for " + escapeHtml(m.merchant) + '? <button class="btn btn-primary" type="button" id="rememberRule" style="height:36px;width:auto;">Yes</button></div>'
+      ? '<div class="rule-banner glass">Always use ' + escapeHtml(m.category) + " for " + escapeHtml(m.merchant) + '? <button class="btn btn-primary" type="button" id="rememberRule" style="height:36px;width:auto;">Yes</button></div>'
       : "";
     const noteOpen = m.noteOpen || m.note;
+    const keyLabels = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "back"];
+    const keysHtml = '<div class="keys">' + keyLabels.map(function (k) {
+      return '<button type="button" class="glass" data-key="' + k + '">' + (k === "back" ? "\u232B" : k) + "</button>";
+    }).join("") + "</div>";
     body.innerHTML = amtBlock +
-      '<div class="confirm-merchant">' + (m.merchant ? escapeHtml(m.merchant) : "Unknown merchant") + "</div>" +
-      '<div class="confirm-meta"><button type="button" class="method-chip" id="confirmMethodBtn">' + escapeHtml(m.method || "UPI") + "</button><span>" + escapeHtml(formatConfirmDate(m.date)) + "</span></div>" +
+      '<div class="confirm-merchant">' + (m.merchant ? escapeHtml(m.merchant) : "Unknown merchant") +
+      " \u00b7 <button type=\"button\" class=\"method-chip pill navy\" id=\"confirmMethodBtn\">" + escapeHtml(m.method || "UPI") + "</button></div>" +
+      '<div class="confirm-meta">Detected from SMS \u00b7 ' + escapeHtml(formatConfirmDate(m.date)) + "</div>" +
       dup + rule +
-      '<div class="field" style="margin-top:20px"><label>Category</label><div class="cat-scroll">' + chips +
-      '<button type="button" class="chip" id="confirmMore">More</button></div><div class="more-grid hidden" id="confirmMoreGrid"></div></div>' +
-      '<button class="note-toggle" type="button" id="toggleNote">' + (noteOpen ? "Hide note" : "+ Add a note") + "</button>" +
+      '<div class="cat-scroll">' + chips +
+      '<button type="button" class="chip glass" id="confirmMore">More</button></div><div class="more-grid hidden" id="confirmMoreGrid"></div>' +
+      '<button class="note-toggle glass confirm-note" type="button" id="toggleNote">' + (noteOpen ? "Hide note" : "\u270E Add a note") + "</button>" +
       '<div class="note-box ' + (noteOpen ? "" : "hidden") + '" id="confirmNoteWrap"><input id="confirmNote" maxlength="120" placeholder="Optional note" value="' + escapeAttr(m.note || "") + '" /></div>' +
-      '<div class="field" style="margin-top:16px"><label>Type</label><div class="seg" id="confirmType">' +
+      '<div class="field confirm-type"><label>Type</label><div class="seg glass" id="confirmType">' +
       '<button type="button" data-ctype="expense" class="expense' + (m.type === "expense" ? " active" : "") + '">Expense</button>' +
-      '<button type="button" data-ctype="income" class="income' + (m.type !== "expense" ? " active" : "") + '">Income</button></div></div>';
+      '<button type="button" data-ctype="income" class="income' + (m.type !== "expense" ? " active" : "") + '">Income</button></div></div>' +
+      "";
     const saveLabel = m.duplicate ? "Save anyway" : "Save";
-    foot.innerHTML = '<button class="btn btn-primary" type="button" id="confirmSave">' + saveLabel + '</button><button class="btn-ghost" type="button" id="confirmSkip">Skip</button>';
+    foot.innerHTML = keysHtml +
+      '<div class="confirm-actions"><button class="btn-ghost btn glass" type="button" id="confirmSkip">Skip</button><button class="btn btn-primary" type="button" id="confirmSave">' + saveLabel + "</button></div>";
 
     const amtInp = document.getElementById("confirmAmount");
     if (amtInp) {
       amtInp.addEventListener("input", function () {
-        confirmModel.amountText = amtInp.value;
-        confirmModel.amount = parseAmount(amtInp.value);
+        applyConfirmAmountText(amtInp.value);
       });
     }
+    foot.querySelectorAll("[data-key]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        const k = b.getAttribute("data-key");
+        let cur = confirmModel.amountText != null ? String(confirmModel.amountText) : (confirmModel.amount != null ? String(confirmModel.amount) : "");
+        if (k === "back") cur = cur.slice(0, -1);
+        else if (k === ".") {
+          if (cur.indexOf(".") >= 0) return;
+          cur = cur ? cur + "." : "0.";
+        } else {
+          const dec = cur.split(".")[1];
+          if (dec && dec.length >= 2) return;
+          cur = (cur === "0") ? k : cur + k;
+        }
+        applyConfirmAmountText(cur);
+      });
+    });
     body.querySelectorAll("[data-conf-cat]").forEach(function (b) {
       b.addEventListener("click", function () { pickConfirmCategory(b.getAttribute("data-conf-cat")); });
     });
@@ -505,7 +555,7 @@
       const open = grid.classList.contains("hidden");
       if (open) {
         grid.innerHTML = state.categories.map(function (c) {
-          return '<button type="button" class="chip' + (c === m.category ? " active" : "") + '" data-conf-cat="' + escapeAttr(c) + '">' + escapeHtml(c) + "</button>";
+          return '<button type="button" class="chip glass' + (c === m.category ? " sel active" : "") + '" data-conf-cat="' + escapeAttr(c) + '">' + catIcon(c) + " " + escapeHtml(c) + "</button>";
         }).join("");
         grid.classList.remove("hidden");
         grid.querySelectorAll("[data-conf-cat]").forEach(function (b) {
@@ -543,6 +593,12 @@
     });
     document.getElementById("confirmSave").addEventListener("click", saveConfirm);
     document.getElementById("confirmSkip").addEventListener("click", skipConfirm);
+    if (m.amount == null || m.forceAmountEdit) {
+      setTimeout(function () {
+        const inp = document.getElementById("confirmAmount");
+        if (inp) inp.focus();
+      }, 30);
+    }
   }
 
   function pickConfirmCategory(cat) {
@@ -664,16 +720,16 @@
   function escapeAttr(s) { return escapeHtml(s); }
 
   function renderRing(pct) {
-    const r = 36, c = 2 * Math.PI * r;
+    const r = 15, c = 2 * Math.PI * r;
     const p = Math.max(0, Math.min(100, pct));
     const dash = (p / 100) * c;
-    const gold = getComputedStyle(document.documentElement).getPropertyValue("--gold").trim() || "#E8B33A";
-    const track = isDark() ? "#1C2338" : "#EEF1F7";
+    const track = "rgba(255,255,255,.18)";
+    const gold = "#F5D27A";
     document.getElementById("rateRing").innerHTML =
-      '<svg viewBox="0 0 88 88" aria-hidden="true">' +
-      '<circle cx="44" cy="44" r="' + r + '" fill="none" stroke="' + track + '" stroke-width="8"/>' +
-      '<circle cx="44" cy="44" r="' + r + '" fill="none" stroke="' + gold + '" stroke-width="8" stroke-linecap="round" stroke-dasharray="' + dash + " " + c + '"/>' +
-      '</svg><div class="ring-center"><div class="ring-val">' + (Math.round(p * 10) / 10) + '%</div><div class="ring-lab">rate</div></div>';
+      '<svg viewBox="0 0 36 36" aria-hidden="true">' +
+      '<circle cx="18" cy="18" r="' + r + '" fill="none" stroke="' + track + '" stroke-width="4"/>' +
+      '<circle cx="18" cy="18" r="' + r + '" fill="none" stroke="' + gold + '" stroke-width="4" stroke-linecap="round" stroke-dasharray="' + dash + " " + c + '"/>' +
+      '</svg><div class="ring-center"><div class="ring-val">' + Math.round(p) + '%</div></div>';
   }
 
   function renderSummary() {
@@ -686,6 +742,18 @@
     netEl.textContent = (t.net < 0 ? "\u2212" : "") + formatINR(Math.abs(t.net));
     netEl.className = "stat-v money " + (t.net >= 0 ? "pos" : "neg");
     document.getElementById("sumRateLabel").textContent = "Savings rate " + (Math.round(t.rate * 10) / 10) + "%";
+    const heroLab = document.getElementById("heroSavedLabel");
+    if (heroLab) heroLab.textContent = "Saved in " + monthLabel(viewMonth).split(" ")[0];
+    const totalB = Object.values(state.budgets).reduce(function (s, n) { return s + (Number(n) || 0); }, 0);
+    const leftEl = document.getElementById("sumBudgetLeft");
+    if (leftEl) {
+      if (!totalB) leftEl.textContent = "\u2014";
+      else {
+        const left = totalB - t.expense;
+        leftEl.textContent = (left < 0 ? "\u2212" : "") + formatINR(Math.abs(left));
+        leftEl.style.color = left < 0 ? "var(--expense)" : "";
+      }
+    }
     renderRing(t.rate);
   }
 
@@ -694,7 +762,7 @@
     const rev = document.getElementById("reviewBanner");
     const n = state.review.length;
     if (n) {
-      rev.innerHTML = '<button class="banner warn" type="button" id="openReview"><span style="font-size:20px">\u2691</span><span><strong>' + n + ' payment' + (n === 1 ? '' : 's') + ' need review</strong><span>Skipped items are kept for 7 days.</span></span><span class="chev">\u203a</span></button>';
+      rev.innerHTML = '<button class="banner glass warn" type="button" id="openReview"><span>\u26A1 ' + n + ' spend' + (n === 1 ? '' : 's') + ' need review</span><span class="pill gold">Review</span></button>';
       document.getElementById("openReview").onclick = openReviewList;
     } else rev.innerHTML = "";
 
@@ -760,12 +828,15 @@
   function chartTheme() {
     const dark = isDark();
     return {
-      text: dark ? "#8A93A8" : "#5B6478",
-      grid: dark ? "#26314A" : "#E2E6F0",
-      income: dark ? "#2FBF71" : "#1F9A58",
-      expense: dark ? "#FF6B6B" : "#E05656"
+      text: dark ? "rgba(243,245,251,.55)" : "rgba(11,26,92,.55)",
+      grid: dark ? "rgba(255,255,255,.08)" : "rgba(11,26,92,.08)",
+      income: "#2440B8",
+      expense: "#E8B33A",
+      gold: "#E8B33A",
+      navy: "#0B1A5C"
     };
   }
+  const CHART_PALETTE = ["#0B1A5C", "#1B2C8A", "#2440B8", "#3A56C8", "#C98E12", "#E8B33A", "#F5D27A", "#F7D984", "#8A9AD4", "#5C6FBF"];
 
   function setEmpty(wrapId, canvasId, message, hasData) {
     const wrap = document.getElementById(wrapId);
@@ -801,7 +872,7 @@
         type: "doughnut",
         data: {
           labels: catLabels,
-          datasets: [{ data: catLabels.map((k) => catMap[k]), backgroundColor: catLabels.map((k) => catColor(k)), borderWidth: 0 }]
+          datasets: [{ data: catLabels.map((k) => catMap[k]), backgroundColor: catLabels.map((_, i) => CHART_PALETTE[i % CHART_PALETTE.length]), borderWidth: 0 }]
         },
         options: {
           animation: anim, responsive: true, maintainAspectRatio: false,
@@ -819,7 +890,7 @@
     if (!topRows.length) top.innerHTML = "";
     else top.innerHTML = topRows.map(function (k) {
       const pct = Math.round((catMap[k] / total) * 100);
-      return '<li class="top-item">' + catIcon(k) + '<div class="grow"><div class="name">' + escapeHtml(k) + '</div><div class="sub">' + pct + '% of spending</div></div><div class="amt expense money">' + formatINR(catMap[k]) + "</div></li>";
+      return '<li class="top-item cat-row">' + catIcon(k) + '<div class="grow"><div style="display:flex;justify-content:space-between;gap:8px"><span class="name">' + escapeHtml(k) + '</span><span class="amt money">' + formatINR(catMap[k]) + '</span></div><div class="bar"><span style="width:' + pct + '%"></span></div></div><div class="pct-lab">' + pct + "%</div></li>";
     }).join("");
 
     destroyChart("daily");
@@ -952,8 +1023,8 @@
       if (spent && inc) total = "\u2212" + formatINR(spent) + "  +" + formatINR(inc);
       else if (inc) total = "+" + formatINR(inc);
       else total = "\u2212" + formatINR(spent);
-      return '<div class="day-head"><div class="d">' + escapeHtml(dayTitle(day)) + '</div><div class="day-total money">' + total + "</div></div>" +
-        groups[day].map(entryRow).join("");
+      return '<div class="day-group"><div class="day-head"><div class="d">' + escapeHtml(dayTitle(day)) + '</div><div class="day-total money">' + total + "</div></div>" +
+        '<div class="card glass" style="padding:0;overflow:hidden">' + groups[day].map(entryRow).join("") + "</div></div>";
     }).join("");
     bindSwipe(root);
     root.querySelectorAll("[data-open]").forEach(function (el) {
@@ -1041,6 +1112,8 @@
     const bar = document.getElementById("budgetTotalBar");
     bar.className = "bar " + barClass(totalB, totalS);
     document.getElementById("budgetTotalFill").style.width = (totalB ? pct : 0) + "%";
+    const usedEl = document.getElementById("budgetUsedPct");
+    if (usedEl) usedEl.textContent = totalB ? Math.round(pct) + "%" : "\u2014";
 
     document.getElementById("budgetList").innerHTML = state.categories.map(function (cat) {
       const b = Number(state.budgets[cat]) || 0;
@@ -1048,11 +1121,27 @@
       const p = b > 0 ? Math.min(100, (s / b) * 100) : 0;
       const over = b > 0 && s > b;
       return '<button class="budget-item" type="button" data-edit-budget="' + escapeAttr(cat) + '">' +
-        '<div class="row"><div class="cat">' + escapeHtml(cat) + '</div><div class="money">' + (b ? formatINR(b) : "No limit") + "</div></div>" +
-        '<div class="fig">' + formatINR(s) + " spent" + (b ? " of " + formatINR(b) : "") + "</div>" +
+        '<div class="cat-row" style="padding:0">' + catIcon(cat) + '<div class="grow">' +
+        '<div class="row"><div class="cat">' + escapeHtml(cat) + '</div><div class="amt money' + (over ? " expense" : "") + '" style="' + (over ? "color:var(--expense)" : "") + '">' +
+        formatINR(s) + (b ? ' <span class="mut">/ ' + formatINR(b) + "</span>" : "") + "</div></div>" +
         '<div class="bar ' + barClass(b, s) + '"><span style="width:' + (b ? p : 0) + '%"></span></div>' +
-        (over ? '<div class="warn-text">Over budget by ' + formatINR(s - b) + "</div>" : "") + "</button>";
+        (over ? '<div class="warn-text">Over budget by ' + formatINR(s - b) + "</div>" : "") +
+        "</div></div></button>";
     }).join("");
+
+    const methBox = document.getElementById("methodSummary");
+    if (methBox) {
+      const methMap = {};
+      entriesInMonth(viewMonth).filter(function (e) { return e.type === "expense"; }).forEach(function (e) {
+        methMap[e.method] = (methMap[e.method] || 0) + e.amount;
+      });
+      const labels = Object.keys(methMap).sort(function (a, b) { return methMap[b] - methMap[a]; });
+      methBox.innerHTML = labels.length
+        ? labels.map(function (m) {
+            return '<div class="set-row"><span>' + escapeHtml(m) + '</span><span class="amt money">' + formatINR(methMap[m]) + "</span></div>";
+          }).join("")
+        : '<div class="empty" style="border:0;background:transparent">No expenses this month.</div>';
+    }
   }
 
   function barClass(budget, spent) {

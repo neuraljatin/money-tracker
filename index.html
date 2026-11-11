@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#0B0F1A" />
+  <meta name="theme-color" content="#070B24" />
   <meta name="color-scheme" content="dark light" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
@@ -28,11 +28,11 @@
       </div>
     </div>
     <div class="month-nav" id="monthNav">
-      <button type="button" class="icon-btn" id="prevMonth" aria-label="Previous month">
+      <button type="button" class="icon-btn glass" id="prevMonth" aria-label="Previous month">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 6 9 12l6 6"/></svg>
       </button>
       <div class="label" id="monthLabel">November 2026</div>
-      <button type="button" class="icon-btn" id="nextMonth" aria-label="Next month">
+      <button type="button" class="icon-btn glass" id="nextMonth" aria-label="Next month">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="m9 6 6 6-6 6"/></svg>
       </button>
     </div>
@@ -40,18 +40,20 @@
 
   <main>
     <section class="page active" id="page-home" data-page="home">
+      <div class="page-title"><h1>Spending</h1></div>
       <div class="hero">
-        <div class="ring" id="rateRing" aria-hidden="true"></div>
-        <div>
-          <div class="hero-k">Savings this month</div>
+        <div style="flex:1;min-width:0">
+          <div class="hero-k k" id="heroSavedLabel">Saved this month</div>
           <div class="hero-amt money" id="sumSaving">₹0</div>
           <div class="hero-sub" id="sumRateLabel">Savings rate 0%</div>
         </div>
+        <div class="ring" id="rateRing" aria-hidden="true"></div>
       </div>
       <div class="tiles">
-        <div class="stat income"><div class="stat-k">Income</div><div class="stat-v money" id="sumIncome">₹0</div></div>
-        <div class="stat expense"><div class="stat-k">Expenses</div><div class="stat-v money" id="sumExpense">₹0</div></div>
-        <div class="stat net"><div class="stat-k">Net</div><div class="stat-v money" id="sumNet">₹0</div></div>
+        <div class="stat expense glass"><div class="stat-k k">Spent</div><div class="stat-v money" id="sumExpense">₹0</div></div>
+        <div class="stat left glass"><div class="stat-k k">Budget left</div><div class="stat-v money" id="sumBudgetLeft">—</div></div>
+        <div class="stat income glass"><div class="stat-k k">Income</div><div class="stat-v money" id="sumIncome">₹0</div></div>
+        <div class="stat net glass"><div class="stat-k k">Net</div><div class="stat-v money" id="sumNet">₹0</div></div>
       </div>
       <div id="reviewBanner"></div>
       <div id="nudgeBanner"></div>
@@ -59,32 +61,33 @@
       <div id="budgetAlerts"></div>
 
       <div class="section">
-        <h2>Where the money went</h2>
-        <div class="card">
-          <h3>Spend by category</h3>
+        <h2 class="sec">Where the money went</h2>
+        <div class="card glass">
+          <h3 class="k">Spend by category</h3>
           <div class="chart-wrap" id="catChartWrap"><canvas id="catChart"></canvas></div>
           <ul class="top-list" id="topCats"></ul>
         </div>
-        <div class="card">
-          <h3>Daily spend</h3>
+        <div class="card glass">
+          <h3 class="k">Daily spend</h3>
           <div class="chart-wrap" id="dailyChartWrap"><canvas id="dailyChart"></canvas></div>
         </div>
-        <div class="card">
-          <h3>Income vs expenses · 6 months</h3>
+        <div class="card glass">
+          <h3 class="k">Income vs expenses · 6 months</h3>
           <div class="chart-wrap tall" id="trendChartWrap"><canvas id="trendChart"></canvas></div>
         </div>
-        <div class="card">
-          <h3>By payment method</h3>
+        <div class="card glass">
+          <h3 class="k">By payment method</h3>
           <div class="chart-wrap" id="methodChartWrap"><canvas id="methodChart"></canvas></div>
         </div>
       </div>
     </section>
 
     <section class="page" id="page-activity" data-page="activity">
-      <div class="search-row">
-        <input id="search" type="search" placeholder="Search notes, merchants, amounts" enterkeyhint="search" />
+      <div class="page-title"><h1>Activity</h1></div>
+      <div class="search-row glass">
+        <input id="search" type="search" placeholder="Search merchants, notes" enterkeyhint="search" />
       </div>
-      <div class="filter-row" id="typeFilters">
+      <div class="filter-row seg glass" id="typeFilters">
         <button class="chip active" type="button" data-filter="all">All</button>
         <button class="chip" type="button" data-filter="expense">Expenses</button>
         <button class="chip" type="button" data-filter="income">Income</button>
@@ -95,30 +98,40 @@
     </section>
 
     <section class="page" id="page-budgets" data-page="budgets">
-      <div class="card budget-total">
-        <h3>This month’s total budget</h3>
-        <div class="hero-amt money" id="budgetTotalAmt" style="font-size:28px;margin:0 0 8px;">₹0</div>
-        <div class="fig hint" id="budgetTotalFig" style="margin:0 0 8px;">No budgets set yet. Tap a category to add one.</div>
+      <div class="page-title"><h1>Budgets</h1></div>
+      <div class="card glass budget-total">
+        <div style="display:flex;justify-content:space-between;gap:12px">
+          <div>
+            <div class="k">Monthly budget</div>
+            <div class="big money" id="budgetTotalAmt">₹0</div>
+          </div>
+          <div style="text-align:right">
+            <div class="k">Used</div>
+            <div class="big money" id="budgetUsedPct" style="color:var(--gold-soft)">0%</div>
+          </div>
+        </div>
+        <div class="fig hint" id="budgetTotalFig" style="margin:8px 0 0;">No budgets set yet. Tap a category to add one.</div>
         <div class="bar" id="budgetTotalBar"><span id="budgetTotalFill"></span></div>
       </div>
-      <div id="budgetList"></div>
+      <div class="card glass" id="budgetList" style="padding:4px 16px 6px"></div>
+      <div class="sec">By payment method</div>
+      <div class="card glass" id="methodSummary"></div>
     </section>
 
     <section class="page" id="page-settings" data-page="settings">
+      <div class="page-title"><h1>Settings</h1></div>
       <div class="set-group">
-        <h2>Look and feel</h2>
-        <div class="set-card">
-          <div class="theme-seg" id="themeSeg">
-            <button type="button" data-theme-val="system">System</button>
-            <button type="button" data-theme-val="dark" class="active">Dark</button>
-            <button type="button" data-theme-val="light">Light</button>
-          </div>
+        <h2>Appearance</h2>
+        <div class="theme-seg glass" id="themeSeg">
+          <button type="button" data-theme-val="light">Light</button>
+          <button type="button" data-theme-val="dark" class="active">Dark</button>
+          <button type="button" data-theme-val="system">Auto</button>
         </div>
       </div>
 
       <div class="set-group">
-        <h2>Export and backup</h2>
-        <div class="set-card">
+        <h2>Data</h2>
+        <div class="set-card glass">
           <button class="set-row" type="button" id="btnExcel">Download Excel<span class="right">.xlsx</span></button>
           <button class="set-row" type="button" id="btnBackup">Download JSON backup<span class="right" id="lastBackupLabel">Never</span></button>
           <button class="set-row" type="button" id="btnRestore">Restore from JSON</button>
@@ -169,7 +182,7 @@
 
   <button class="fab show" type="button" id="fabAdd" aria-label="Add entry">+</button>
 
-  <nav class="tab-bar" aria-label="Main">
+  <nav class="tab-bar glass" aria-label="Main">
     <button class="tab-btn active" type="button" data-nav="home">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11.5 12 4l8 7.5"/><path d="M6 10.5V20h12v-9.5"/></svg>
       Home
@@ -191,7 +204,7 @@
   <!-- Confirm (full-screen) -->
   <div class="overlay" id="confirmOverlay" role="dialog" aria-labelledby="confirmTitle" aria-modal="true">
     <div class="overlay-head">
-      <button class="icon-btn" type="button" id="confirmClose" aria-label="Close">
+      <button class="icon-btn glass" type="button" id="confirmClose" aria-label="Close">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
       </button>
       <strong id="confirmTitle">Confirm payment</strong>
@@ -253,7 +266,7 @@
   <!-- Review list overlay -->
   <div class="overlay" id="reviewOverlay" role="dialog" aria-labelledby="reviewTitle" aria-modal="true">
     <div class="overlay-head">
-      <button class="icon-btn" type="button" id="reviewClose" aria-label="Close">
+      <button class="icon-btn glass" type="button" id="reviewClose" aria-label="Close">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
       </button>
       <strong id="reviewTitle">Needs review</strong>
