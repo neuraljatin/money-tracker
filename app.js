@@ -9,7 +9,7 @@
     applePay: ""
   };
 
-  const APP_VERSION = "1.1.0";
+  const APP_VERSION = "1.1.1";
   const APP_BUILD = "2026-11-11";
   const SCHEMA_VERSION = 2;
   const STORE_KEY = "jatin-money-tracker-v1";
@@ -86,6 +86,9 @@
       merchantRules: {},
       lastBackup: null,
       lastMonthNudge: null,
+      lastShortcutAt: null,          /* last time the Shortcut opened the app (any SMS, even ignored ones) */
+      shortcutWatchFrom: null,       /* automation marked done but nothing has arrived yet: count from here */
+      shortcutReminderSnooze: null,  /* "remind me in 7 days" */
       theme: "system",
       glass: true,
       setup: defaultSetup()
@@ -232,57 +235,13 @@
     });
   }
 
-  function parseAmount(str) {
-    if (typeof str === "number") return isFinite(str) && str > 0 ? Math.round(str * 100) / 100 : null;
-    const cleaned = String(str || "").replace(/[\u20B9,\s]/g, "").replace(/rs\.?|inr/ig, "");
-    const n = parseFloat(cleaned);
-    if (!isFinite(n) || n <= 0) return null;
-    return Math.round(n * 100) / 100;
-  }
-
-  function parseAmountFromText(text) {
-    const s = String(text || "");
-    const patterns = [
-      /(?:rs\.?|inr|\u20B9)\s*([0-9][0-9,]*(?:\.\d{1,2})?)/i,
-      /(?:debited|credited|spent|paid|received|deposited)\s+(?:by|with|for|of)?\s*(?:rs\.?|inr|\u20B9)?\s*([0-9][0-9,]*(?:\.\d{1,2})?)/i,
-      /([0-9][0-9,]*(?:\.\d{1,2})?)\s*(?:rs\.?|inr|\u20B9)/i
-    ];
-    for (const re of patterns) {
-      const m = s.match(re);
-      if (m) {
-        const amt = parseAmount(m[1]);
-        if (amt != null) return amt;
-      }
-    }
-    return null;
-  }
-
-  function guessTypeFromRaw(raw, fallback) {
-    const s = String(raw || "");
-    if (/credited|has been credited|received|refund|deposited/i.test(s) && !/debited/i.test(s)) return "income";
-    if (fallback) return fallback;
-    return "expense";
-  }
-
-  function guessMerchantFromRaw(raw) {
-    const s = String(raw || "");
-    const patterns = [
-      /\bat\s+([A-Za-z0-9][A-Za-z0-9 &._-]{1,40})/i,
-      /\bto\s+([A-Za-z0-9][A-Za-z0-9 &._-]{1,40})/i,
-      /\btowards\s+([A-Za-z0-9][A-Za-z0-9 &._-]{1,40})/i,
-      /\bUPI[-\s]([A-Za-z0-9][A-Za-z0-9 &._-]{1,40})/i,
-      /\binfo[:\s]+([A-Za-z0-9][A-Za-z0-9 &._-]{1,40})/i
-    ];
-    for (const re of patterns) {
-      const m = s.match(re);
-      if (m) return cleanMerchant(m[1]);
-    }
-    return "";
-  }
-
-  function cleanMerchant(s) {
-    return String(s || "").replace(/\s+(on|avbl|avl|info|refno|ref).*$/i, "").replace(/[.,;]+$/, "").trim();
-  }
+  /* SMS reading lives in sms-parse.js (shared with tests/parse.test.js) */
+  const MTParse = window.MTParse;
+  const parseAmount = MTParse.parseAmount;
+  const parseAmountFromText = MTParse.parseAmountFromText;
+  const guessTypeFromRaw = MTParse.guessTypeFromRaw;
+  const guessMerchantFromRaw = MTParse.guessMerchantFromRaw;
+  const cleanMerchant = MTParse.cleanMerchant;
 
   function guessMethodFromRaw(raw, fallback) {
     const s = String(raw || "") + " " + String(fallback || "");
@@ -561,6 +520,11 @@
     const raw = params.raw || params.sms || params.text || "";
     let amount = parseAmount(params.amount);
     if (amount == null) amount = parseAmountFromText(raw);
+    else if (raw && MTParse.isBalanceAmount(raw, amount)) {
+      /* the Shortcut grabbed the balance; use the spend from the SMS instead */
+      const fromText = parseAmountFromText(raw);
+      if (fromText != null) amount = fromText;
+    }
     const merchant = cleanMerchant(params.merchant || params.payee || guessMerchantFromRaw(raw) || "");
     const typeParam = String(params.type || "").toLowerCase();
     let type;
@@ -610,6 +574,17 @@
   function handleDeepLink() {
     const link = parseDeepLink();
     if (!link) return;
+    const isTest = link.params.test === "1" || link.params.test === "true";
+    if (!isTest) noteShortcutActivity();
+    const raw = link.params.raw || link.params.sms || link.params.text || "";
+    const verdict = MTParse.classifySms(raw);
+    if (!verdict.log) {
+      /* OTP, failed payment, balance alert, promo or own-account transfer: never log it */
+      clearDeepLink();
+      renderAll();
+      toast(verdict.message);
+      return;
+    }
     const draft = buildDraftFromParams(link.params);
     if (link.action === "add" && draft.amount != null) {
       const entry = commitEntry({
@@ -992,6 +967,8 @@
       document.getElementById("nudgeDismiss").onclick = dismissNudge;
     } else nudge.innerHTML = "";
 
+    renderShortcutReminder();
+
     const bak = document.getElementById("backupBanner");
     const due = backupDue();
     if (due) {
@@ -1010,6 +987,61 @@
       const s = spend[cat] || 0;
       return '<div class="banner warn" style="margin-top:8px">' + icon("warning") + '<span><strong>Over budget \u00b7 ' + escapeHtml(cat) + "</strong><span>" + formatINR(s) + " of " + formatINR(b) + "</span></span></div>";
     }).join("");
+  }
+
+  /* ---------- 7-day Shortcut check (shown on open; a web app can't send its own notifications) ---------- */
+  const SHORTCUT_QUIET_DAYS = 7;
+  const DAY_MS = 24 * 60 * 60 * 1000;
+
+  function noteShortcutActivity() {
+    state.lastShortcutAt = new Date().toISOString();
+    state.shortcutReminderSnooze = null;
+    save();
+  }
+
+  function lastShortcutTime() {
+    let last = state.lastShortcutAt ? new Date(state.lastShortcutAt).getTime() : NaN;
+    state.entries.forEach(function (e) {
+      if (e.source !== "shortcut" && e.source !== "confirm") return;
+      const t = new Date(e.createdAt).getTime();
+      if (isFinite(t) && (!isFinite(last) || t > last)) last = t;
+    });
+    return isFinite(last) ? last : null;
+  }
+
+  /* Days since the Shortcut last sent anything, or null when there is nothing to remind about. */
+  function shortcutQuietDays() {
+    const s = state.setup || {};
+    let since = lastShortcutTime();
+    if (since == null) {
+      if (!s.autoSms && !s.autoWallet) return null;      /* never set up: nothing to check */
+      if (!state.shortcutWatchFrom) { state.shortcutWatchFrom = new Date().toISOString(); save(); }
+      since = new Date(state.shortcutWatchFrom).getTime();
+    }
+    const snooze = state.shortcutReminderSnooze ? new Date(state.shortcutReminderSnooze).getTime() : 0;
+    const now = Date.now();
+    if (snooze && now < snooze) return null;
+    const days = Math.floor((now - since) / DAY_MS);
+    return days >= SHORTCUT_QUIET_DAYS ? days : null;
+  }
+
+  function renderShortcutReminder() {
+    const el = document.getElementById("shortcutBanner");
+    if (!el) return;
+    const days = shortcutQuietDays();
+    if (days == null) { el.innerHTML = ""; return; }
+    el.innerHTML = '<div class="banner warn" role="status">' + icon("warning") +
+      '<span><strong>No spends from your Shortcut for ' + days + ' days</strong>' +
+      '<span>Check the automation is still on in the Shortcuts app, then tap Test.</span></span></div>' +
+      '<div class="banner-actions" style="margin-bottom:8px"><button class="btn btn-primary" type="button" id="shortcutCheck">Check setup</button>' +
+      '<button class="btn" type="button" id="shortcutSnooze">Snooze 7 days</button></div>';
+    document.getElementById("shortcutCheck").onclick = openSetup;
+    document.getElementById("shortcutSnooze").onclick = function () {
+      state.shortcutReminderSnooze = new Date(Date.now() + SHORTCUT_QUIET_DAYS * DAY_MS).toISOString();
+      save();
+      renderShortcutReminder();
+      toast("OK, I\u2019ll check again in 7 days");
+    };
   }
 
   function dismissNudge() {

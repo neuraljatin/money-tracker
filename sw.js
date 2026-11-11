@@ -1,8 +1,9 @@
-const CACHE = "money-tracker-v5-1.1.0";
+const CACHE = "money-tracker-v6-1.1.1";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
+  "./sms-parse.js",
   "./app.js",
   "./manifest.json",
   "./chart.umd.min.js",

@@ -57,6 +57,7 @@
       </div>
       <div id="reviewBanner"></div>
       <div id="nudgeBanner"></div>
+      <div id="shortcutBanner"></div>
       <div id="backupBanner"></div>
       <div id="budgetAlerts"></div>
 
@@ -338,7 +339,7 @@
           <li>The app opens at <code>#confirm&amp;amount=&hellip;</code>. The details sit after <b>#</b>, so they never leave the phone.</li>
           <li>Check the category and tap <b>Save</b>. <b>Skip</b> moves it to Needs review.</li>
         </ol>
-        <p class="hint">&ldquo;Credited&rdquo; means income. The same amount within 10 minutes shows a duplicate warning (a matching merchant makes it &ldquo;very likely&rdquo;), but you can still save it.</p></div>
+        <p class="hint">&ldquo;Credited&rdquo; means income. The same amount within 10 minutes shows a duplicate warning (a matching merchant makes it &ldquo;very likely&rdquo;), but you can still save it. OTPs, failed payments, balance alerts, offers and transfers between your own accounts are ignored, so they never get logged.</p></div>
       </div>
 
       <div class="set-group"><h2>Data &amp; privacy</h2>
@@ -368,6 +369,7 @@
           <li><span class="pill gold">Done</span>Version shown in Settings, and new builds replace the old cache</li>
           <li><span class="pill gold">Done</span>Needs review list for SMS the app couldn&rsquo;t read</li>
           <li><span class="pill gold">Done</span>Glass effect switch, Reduce Transparency and Reduce Motion support</li>
+          <li><span class="pill gold">Done</span>Reminder on open if no spend has come from your Shortcut for 7 days</li>
           <li><span class="pill">Next</span>Weekly encrypted backup to iCloud Drive or Files, with a checked restore</li>
           <li><span class="pill">Next</span>App lock with Face ID or a passcode</li>
           <li><span class="pill">Next</span>Self-check on open, and an &ldquo;Update available&rdquo; banner</li>
@@ -395,6 +397,7 @@
 
   <script src="./chart.umd.min.js"></script>
   <script src="./xlsx.full.min.js"></script>
+  <script src="./sms-parse.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>

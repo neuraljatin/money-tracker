@@ -937,3 +937,24 @@ html.no-glass[data-theme="light"] { --glass-border: rgba(0, 0, 107, 0.10); }
 
 /* Undo toast: one comfortable line where it fits */
 .toast.has-action { width: max-content; min-width: 260px; justify-content: space-between; }
+
+/* ---- BUG-06: every tap target at least 44 × 44 px (Apple's minimum) ---- */
+.seg button, .theme-seg button, #typeFilters .chip { min-height: 44px; }
+.chip { min-height: 44px; }
+.icon-btn, .icon-btn.glass { width: 44px; height: 44px; }
+.step-act { min-height: 44px; }
+.linkish { height: 44px; min-width: 44px; }
+.step-mark { height: 44px; margin-top: 0; }
+.toast-action { min-height: 44px; }
+/* × on category / method / rule pills: 44 × 44 hit area, same look (negative margin keeps the pill size) */
+.pill-wrap .pill button, span.pill button {
+  width: 44px; height: 44px;
+  margin: -10px -8px -10px -6px;
+  display: inline-grid; place-items: center;
+  border-radius: 50%;
+  flex: 0 0 44px;
+}
+.pill-wrap { row-gap: 10px; }
+/* method pill on the Confirm screen: keep its small look, grow the tappable area to 44 px tall */
+#confirmMethodBtn { position: relative; }
+#confirmMethodBtn::after { content: ""; position: absolute; left: -6px; right: -6px; top: 50%; height: 44px; transform: translateY(-50%); }
